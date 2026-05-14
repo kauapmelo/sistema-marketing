@@ -2,20 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, set } from "firebase/database";
 
-/* ─── FIREBASE CONFIGURATION ─────────────────────────────── */
-// Substitua estas chaves pelas credenciais do seu projeto Firebase.
-// Você encontra isso no Console do Firebase > Configurações do Projeto.
 const firebaseConfig = {
-    apiKey: "AIzaSyDQtM1C2qNhGUdoBsZMFYEs8ZFuODOAok4",
-    authDomain: "marketing-4ce98.firebaseapp.com",
-    projectId: "marketing-4ce98",
-    storageBucket: "marketing-4ce98.firebasestorage.app",
-    messagingSenderId: "516792766193",
-    appId: "1:516792766193:web:8f71aff22b871515f96350"
+  apiKey: "AIzaSyDQtM1C2qNhGUdoBsZMFYEs8ZFuODOAok4",
+  authDomain: "marketing-4ce98.firebaseapp.com",
+  projectId: "marketing-4ce98",
+  storageBucket: "marketing-4ce98.firebasestorage.app",
+  messagingSenderId: "516792766193",
+  appId: "1:516792766193:web:8f71aff22b871515f96350"
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app); 
+export const db = getDatabase(app);
 
 /* ─── THEME ─────────────────────────────────────────────── */
 const T = {
@@ -32,33 +29,43 @@ const T = {
 };
 
 const MEMBER_COLORS = ["#7c6af7","#22c55e","#f59e0b","#3b82f6","#ec4899","#14b8a6","#ef4444","#a855f7","#06b6d4","#84cc16"];
-const TASK_TYPES = ["Post","Story","Reels","E-mail","Blog","Anúncio","Relatório","Reunião","Design","Vídeo"];
-const PRIORITIES = ["alta","média","baixa"];
-const priorityColor = { alta: T.red, média: T.amber, baixa: T.green };
 
-/* ─── INITIAL DATA (Fallback) ────────────────────────────── */
+/* ─── PRIORIDADES COM PONTOS PREDEFINIDOS ─────────────────── */
+const PRIORITIES = [
+  { id: "facil",    label: "Fácil",    points: 50,  color: "#22c55e" },
+  { id: "medio",    label: "Médio",    points: 100, color: "#3b82f6" },
+  { id: "dificil",  label: "Difícil",  points: 150, color: "#f59e0b" },
+  { id: "complexo", label: "Complexo", points: 200, color: "#ef4444" },
+];
+const getPriority = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[0];
+const priorityColor = (id) => getPriority(id).color;
+
+/* ─── TIPOS DE TAREFA (editável globalmente via Firebase) ─── */
+const DEFAULT_TASK_TYPES = ["Post","Story","Reels","E-mail","Blog","Anúncio","Relatório","Reunião","Design","Vídeo"];
+
+/* ─── INITIAL DATA ───────────────────────────────────────── */
 const INIT_MEMBERS = [
-  { id: 1, name: "Ana Silva",    avatar: "AS", color: "#7c6af7", role: "Designer" },
-  { id: 2, name: "Bruno Costa",  avatar: "BC", color: "#22c55e", role: "Copywriter" },
-  { id: 3, name: "Carla Mendes", avatar: "CM", color: "#f59e0b", role: "Social Media" },
-  { id: 4, name: "Diego Ramos",  avatar: "DR", color: "#3b82f6", role: "Gestor" },
+  { id: 1, name: "Ana Silva",    avatar: "AS", color: "#7c6af7", role: "Designer",     passwordHash: btoa("1234") },
+  { id: 2, name: "Bruno Costa",  avatar: "BC", color: "#22c55e", role: "Copywriter",   passwordHash: btoa("1234") },
+  { id: 3, name: "Carla Mendes", avatar: "CM", color: "#f59e0b", role: "Social Media",  passwordHash: btoa("1234") },
+  { id: 4, name: "Diego Ramos",  avatar: "DR", color: "#3b82f6", role: "Gestor",        passwordHash: btoa("1234") },
 ];
 
 const INIT_COLUMNS = [
-  { id: "backlog", title: "Backlog", color: T.textMuted, cards: [
-    { id: 101, title: "Criar calendário de conteúdo junho", type: "Blog", points: 50, members: [1,2], priority: "alta", due: "2026-05-20", desc: "Planejar todos os posts do mês de junho.", mentions: ["@ana","@bruno"], comments: [], checklist: [] },
-    { id: 102, title: "Design banner campanha verão", type: "Design", points: 80, members: [1], priority: "média", due: "2026-05-22", desc: "", mentions: [], comments: [], checklist: [{ id: 1, text: "Esboço inicial", done: false },{ id: 2, text: "Revisão cliente", done: false }] },
+  { id: "backlog", title: "Backlog", color: T.textMuted, order: 0, cards: [
+    { id: 101, title: "Criar calendário de conteúdo junho", type: "Blog", points: 50, members: [1,2], priority: "medio", due: "2026-05-20", desc: "Planejar todos os posts do mês de junho.", mentions: ["@ana","@bruno"], comments: [], checklist: [] },
+    { id: 102, title: "Design banner campanha verão", type: "Design", points: 100, members: [1], priority: "dificil", due: "2026-05-22", desc: "", mentions: [], comments: [], checklist: [{ id: 1, text: "Esboço inicial", done: false },{ id: 2, text: "Revisão cliente", done: false }] },
   ]},
-  { id: "doing", title: "Em Andamento", color: T.blue, cards: [
-    { id: 103, title: "Reels produto novo – gravação", type: "Reels", points: 120, members: [3], priority: "alta", due: "2026-05-15", desc: "", mentions: ["@carla"], comments: [], checklist: [] },
-    { id: 104, title: "Anúncios Google Ads maio", type: "Anúncio", points: 100, members: [4], priority: "alta", due: "2026-05-16", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "doing", title: "Em Andamento", color: T.blue, order: 1, cards: [
+    { id: 103, title: "Reels produto novo – gravação", type: "Reels", points: 150, members: [3], priority: "dificil", due: "2026-05-15", desc: "", mentions: ["@carla"], comments: [], checklist: [] },
+    { id: 104, title: "Anúncios Google Ads maio", type: "Anúncio", points: 100, members: [4], priority: "medio", due: "2026-05-16", desc: "", mentions: [], comments: [], checklist: [] },
   ]},
-  { id: "review", title: "Revisão", color: T.amber, cards: [
-    { id: 105, title: "E-mail marketing semanal", type: "E-mail", points: 60, members: [2,4], priority: "média", due: "2026-05-14", desc: "", mentions: ["@bruno"], comments: [], checklist: [] },
+  { id: "review", title: "Revisão", color: T.amber, order: 2, cards: [
+    { id: 105, title: "E-mail marketing semanal", type: "E-mail", points: 100, members: [2,4], priority: "medio", due: "2026-05-14", desc: "", mentions: ["@bruno"], comments: [], checklist: [] },
   ]},
-  { id: "done", title: "Concluído", color: T.green, cards: [
-    { id: 106, title: "Post Instagram produto A", type: "Post", points: 40, members: [3], priority: "baixa", due: "2026-05-10", desc: "", mentions: [], comments: [], checklist: [] },
-    { id: 107, title: "Relatório mensal abril", type: "Relatório", points: 90, members: [4], priority: "alta", due: "2026-05-12", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "done", title: "Concluído", color: T.green, order: 3, cards: [
+    { id: 106, title: "Post Instagram produto A", type: "Post", points: 50, members: [3], priority: "facil", due: "2026-05-10", desc: "", mentions: [], comments: [], checklist: [] },
+    { id: 107, title: "Relatório mensal abril", type: "Relatório", points: 150, members: [4], priority: "dificil", due: "2026-05-12", desc: "", mentions: [], comments: [], checklist: [] },
   ]},
 ];
 
@@ -91,6 +98,9 @@ const uid = () => Date.now() + Math.random();
 const initials = n => n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 const fmtDate = d => d ? d.slice(5).replace("-","/") : "";
 const fmtNum = n => n >= 1000 ? (n/1000).toFixed(1)+"k" : String(n);
+const hashPwd = (pwd) => btoa(encodeURIComponent(pwd));
+
+const REMEMBER_KEY = "mkt_remember_user";
 
 const s = {
   card: (extra={}) => ({ background: T.bg2, borderRadius: 12, border: `1px solid ${T.border}`, ...extra }),
@@ -120,14 +130,14 @@ function Pill({ label, color }) {
 function NotifBell({ notifs, onClear }) {
   const [open, setOpen] = useState(false);
   const unread = notifs.filter(n=>!n.read).length;
-  const ref = useRef();
+  const bellRef = useRef();
   useEffect(() => {
-    const fn = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const fn = e => { if(bellRef.current && !bellRef.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
   return (
-    <div ref={ref} style={{ position:"relative" }}>
+    <div ref={bellRef} style={{ position:"relative" }}>
       <button onClick={()=>setOpen(o=>!o)} style={{ background:"none", border:"none", cursor:"pointer", position:"relative", padding:4 }}>
         <span style={{ fontSize:20 }}>🔔</span>
         {unread > 0 && <span style={{ position:"absolute", top:0, right:0, background:T.red, color:"#fff", borderRadius:"50%", width:16, height:16, fontSize:10, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center" }}>{unread}</span>}
@@ -155,13 +165,46 @@ function NotifBell({ notifs, onClear }) {
   );
 }
 
-/* ─── LOGIN SCREEN ───────────────────────────────────────── */
+/* ─── LOGIN SCREEN (com senha + lembrar dispositivo) ─────── */
 function LoginScreen({ members, onLogin, onRegister }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [role, setRole] = useState("Social Media");
   const [color, setColor] = useState(MEMBER_COLORS[0]);
   const [selId, setSelId] = useState(null);
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [error, setError] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+
+  const handleLogin = () => {
+    setError("");
+    const member = members.find(m => m.id === selId);
+    if (!member) { setError("Selecione um perfil."); return; }
+    if (!member.passwordHash) {
+      // legado sem senha
+      if (remember) localStorage.setItem(REMEMBER_KEY, String(member.id));
+      onLogin(member);
+      return;
+    }
+    if (hashPwd(password) !== member.passwordHash) {
+      setError("Senha incorreta.");
+      return;
+    }
+    if (remember) localStorage.setItem(REMEMBER_KEY, String(member.id));
+    else localStorage.removeItem(REMEMBER_KEY);
+    onLogin(member);
+  };
+
+  const handleRegister = () => {
+    if (!name.trim()) { setError("Digite seu nome."); return; }
+    if (!newPassword.trim()) { setError("Defina uma senha."); return; }
+    const newMember = { id: uid(), name: name.trim(), avatar: initials(name.trim()), color, role: role || "Membro", passwordHash: hashPwd(newPassword) };
+    onRegister(newMember);
+    setMode("login");
+    setName(""); setNewPassword(""); setError("");
+  };
 
   return (
     <div style={{ minHeight:"100vh", background:T.bg0, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',system-ui,sans-serif" }}>
@@ -174,19 +217,21 @@ function LoginScreen({ members, onLogin, onRegister }) {
 
         <div style={{ display:"flex", background:T.bg3, borderRadius:10, padding:4, marginBottom:24, gap:4 }}>
           {["login","register"].map(m => (
-            <button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"8px 0", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background: mode===m ? T.accent : "transparent", color: mode===m ? "#fff" : T.textMuted, transition:"all .2s" }}>
+            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{ flex:1, padding:"8px 0", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background: mode===m ? T.accent : "transparent", color: mode===m ? "#fff" : T.textMuted, transition:"all .2s" }}>
               {m==="login" ? "Entrar" : "Criar conta"}
             </button>
           ))}
         </div>
 
+        {error && <div style={{ background:T.redDim, border:`1px solid ${T.red}33`, borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:13, color:T.red }}>{error}</div>}
+
         {mode === "login" ? (
           <div>
             <label style={s.label}>Selecione seu perfil</label>
-            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:24, maxHeight: 200, overflowY:"auto" }}>
-              {members.length === 0 && <p style={{ color: T.textMuted, fontSize: 13, textAlign:"center" }}>Carregando membros...</p>}
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16, maxHeight:200, overflowY:"auto" }}>
+              {members.length === 0 && <p style={{ color:T.textMuted, fontSize:13, textAlign:"center" }}>Carregando membros...</p>}
               {members.map(m => (
-                <div key={m.id} onClick={()=>setSelId(m.id)} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", borderRadius:10, border:`1.5px solid ${selId===m.id ? T.accent : T.border}`, cursor:"pointer", background: selId===m.id ? T.accentDim : T.bg3, transition:"all .15s" }}>
+                <div key={m.id} onClick={()=>{setSelId(m.id);setPassword("");setError("");}} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", borderRadius:10, border:`1.5px solid ${selId===m.id ? T.accent : T.border}`, cursor:"pointer", background: selId===m.id ? T.accentDim : T.bg3, transition:"all .15s" }}>
                   <Avatar member={m} size={36} />
                   <div>
                     <p style={{ margin:0, fontWeight:700, fontSize:14, color:T.text }}>{m.name}</p>
@@ -196,10 +241,20 @@ function LoginScreen({ members, onLogin, onRegister }) {
                 </div>
               ))}
             </div>
-            <button onClick={()=>selId && onLogin(members.find(m=>m.id===selId))} disabled={!selId}
-              style={{ ...s.btn(T.accent, { width:"100%", padding:"12px", fontSize:15, opacity: selId ? 1 : .4 }) }}>
-              Entrar
-            </button>
+            {selId && (
+              <div style={{ marginBottom:14 }}>
+                <label style={s.label}>Senha</label>
+                <div style={{ position:"relative" }}>
+                  <input type={showPwd?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Digite sua senha" style={{ ...s.input(), paddingRight:40 }} />
+                  <button onClick={()=>setShowPwd(v=>!v)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:16 }}>{showPwd?"🙈":"👁️"}</button>
+                </div>
+              </div>
+            )}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
+              <input type="checkbox" id="remember" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{ accentColor:T.accent, width:15, height:15, cursor:"pointer" }} />
+              <label htmlFor="remember" style={{ fontSize:13, color:T.textSub, cursor:"pointer" }}>Lembrar neste dispositivo</label>
+            </div>
+            <button onClick={handleLogin} disabled={!selId} style={{ ...s.btn(T.accent, { width:"100%", padding:"12px", fontSize:15, opacity: selId ? 1 : .4 }) }}>Entrar</button>
           </div>
         ) : (
           <div>
@@ -207,16 +262,18 @@ function LoginScreen({ members, onLogin, onRegister }) {
             <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex: Maria Souza" style={{ ...s.input(), marginBottom:14 }} />
             <label style={s.label}>Cargo / Função</label>
             <input value={role} onChange={e=>setRole(e.target.value)} placeholder="Ex: Designer" style={{ ...s.input(), marginBottom:14 }} />
+            <label style={s.label}>Senha</label>
+            <div style={{ position:"relative", marginBottom:14 }}>
+              <input type={showPwd?"text":"password"} value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Crie uma senha" style={{ ...s.input(), paddingRight:40 }} />
+              <button onClick={()=>setShowPwd(v=>!v)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:T.textMuted, fontSize:16 }}>{showPwd?"🙈":"👁️"}</button>
+            </div>
             <label style={s.label}>Cor do perfil</label>
             <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
               {MEMBER_COLORS.map(c => (
                 <div key={c} onClick={()=>setColor(c)} style={{ width:28, height:28, borderRadius:"50%", background:c, cursor:"pointer", border: color===c ? `3px solid ${T.text}` : "3px solid transparent", transition:"border .15s" }} />
               ))}
             </div>
-            <button onClick={()=>{ if(name.trim()) { onRegister({ id:uid(), name:name.trim(), avatar:initials(name.trim()), color, role:role||"Membro" }); setMode("login"); setName(""); }}}
-              style={s.btn(T.accent, { width:"100%", padding:"12px", fontSize:15 })}>
-              Criar conta
-            </button>
+            <button onClick={handleRegister} style={s.btn(T.accent, { width:"100%", padding:"12px", fontSize:15 })}>Criar conta</button>
           </div>
         )}
       </div>
@@ -224,36 +281,75 @@ function LoginScreen({ members, onLogin, onRegister }) {
   );
 }
 
+/* ─── MANAGE COLUMN TYPES MODAL ──────────────────────────── */
+function ManageTypesModal({ types, onSave, onClose }) {
+  const [list, setList] = useState([...types]);
+  const [newType, setNewType] = useState("");
+  const add = () => { const t = newType.trim(); if(t && !list.includes(t)) { setList([...list, t]); setNewType(""); } };
+  const remove = (t) => setList(list.filter(x => x !== t));
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={s.card({padding:28,width:380,boxShadow:"0 24px 64px #000000cc"})}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
+          <h3 style={{ margin:0,fontWeight:800,color:T.text }}>Gerenciar Tipos de Tarefa</h3>
+          <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontSize:22 }}>×</button>
+        </div>
+        <div style={{ display:"flex",flexWrap:"wrap",gap:6,marginBottom:16,maxHeight:200,overflowY:"auto" }}>
+          {list.map(t => (
+            <div key={t} style={{ display:"flex",alignItems:"center",gap:4,background:T.accentDim,border:`1px solid ${T.accent}44`,borderRadius:20,padding:"4px 10px" }}>
+              <span style={{ fontSize:12,fontWeight:600,color:T.accent }}>{t}</span>
+              <button onClick={()=>remove(t)} style={{ background:"none",border:"none",cursor:"pointer",color:T.accent,fontSize:14,padding:0,lineHeight:1 }}>×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"flex",gap:8,marginBottom:20 }}>
+          <input value={newType} onChange={e=>setNewType(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="Novo tipo..." style={s.input({flex:1})} />
+          <button onClick={add} style={s.btn(T.accent)}>Adicionar</button>
+        </div>
+        <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+          <button onClick={onClose} style={s.btn(T.bg4,{color:T.text})}>Cancelar</button>
+          <button onClick={()=>onSave(list)} style={s.btn(T.accent)}>Salvar tipos</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── CARD DETAIL MODAL ──────────────────────────────────── */
-function CardModal({ card, colId, members, currentUser, onSave, onClose, onNotify }) {
+function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClose, onNotify, onManageTypes }) {
   const isNew = !card?.id;
+  const defPriority = PRIORITIES[0];
   const [form, setForm] = useState(card ? { ...card } : {
-    title:"", type:"Post", points:40, members:[], priority:"média",
-    due:"", desc:"", mentions:[], comments:[], checklist:[]
+    title:"", type: taskTypes[0] || "Post", points: defPriority.points,
+    members:[], priority: defPriority.id, due:"", desc:"", mentions:[], comments:[], checklist:[]
   });
   const [mention, setMention] = useState("");
   const [comment, setComment] = useState("");
   const [checkText, setCheckText] = useState("");
 
-  const set = (key,val) => setForm(f=>({...f,[key]:val}));
-  const toggleMember = id => set("members", form.members.includes(id) ? form.members.filter(x=>x!==id) : [...(form.members||[]),id]);
+  const setF = (key,val) => setForm(f=>({...f,[key]:val}));
+
+  const handlePriorityChange = (pid) => {
+    const p = getPriority(pid);
+    setForm(f => ({ ...f, priority: pid, points: p.points }));
+  };
+
+  const toggleMember = id => setF("members", form.members.includes(id) ? form.members.filter(x=>x!==id) : [...(form.members||[]),id]);
 
   const addMention = () => {
     const m = mention.trim();
     if(!m) return;
     const tag = m.startsWith("@") ? m : "@"+m;
     const member = members.find(mb => mb.name.toLowerCase().includes(m.replace("@","").toLowerCase()));
-    set("mentions",[...(form.mentions||[]),tag]);
-    if(member && member.id !== currentUser?.id) {
-      onNotify(member.id, `Você foi mencionado em "${form.title||"novo card"}" por ${currentUser?.name||"alguém"}`);
-    }
+    setF("mentions",[...(form.mentions||[]),tag]);
+    if(member && member.id !== currentUser?.id) onNotify(member.id, `Você foi mencionado em "${form.title||"novo card"}" por ${currentUser?.name||"alguém"}`);
     setMention("");
   };
 
   const addComment = () => {
     if(!comment.trim()) return;
     const c = { id:uid(), text:comment.trim(), author:currentUser?.name||"Anônimo", time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) };
-    set("comments",[...(form.comments||[]),c]);
+    setF("comments",[...(form.comments||[]),c]);
     setComment("");
     (form.members||[]).forEach(mid => {
       if(mid !== currentUser?.id) {
@@ -265,14 +361,15 @@ function CardModal({ card, colId, members, currentUser, onSave, onClose, onNotif
 
   const addCheck = () => {
     if(!checkText.trim()) return;
-    set("checklist",[...(form.checklist||[]),{id:uid(),text:checkText.trim(),done:false}]);
+    setF("checklist",[...(form.checklist||[]),{id:uid(),text:checkText.trim(),done:false}]);
     setCheckText("");
   };
-  const toggleCheck = id => set("checklist",(form.checklist||[]).map(c=>c.id===id?{...c,done:!c.done}:c));
-  const removeCheck = id => set("checklist",(form.checklist||[]).filter(c=>c.id!==id));
+  const toggleCheck = id => setF("checklist",(form.checklist||[]).map(c=>c.id===id?{...c,done:!c.done}:c));
+  const removeCheck = id => setF("checklist",(form.checklist||[]).filter(c=>c.id!==id));
 
   const doneChecks = (form.checklist||[]).filter(c=>c.done).length;
   const totalChecks = (form.checklist||[]).length;
+  const pri = getPriority(form.priority);
 
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:1000,overflowY:"auto",padding:"32px 16px" }}
@@ -280,14 +377,14 @@ function CardModal({ card, colId, members, currentUser, onSave, onClose, onNotif
       <div style={{ width:"100%",maxWidth:680,...s.card({padding:0,boxShadow:"0 24px 64px #000000cc",overflow:"hidden"}) }}>
         <div style={{ padding:"20px 24px 16px",borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12 }}>
-            <input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="Título do card..." style={{ ...s.input({fontSize:18,fontWeight:700,background:"transparent",border:"none",padding:"0",flex:1}) }} />
+            <input value={form.title} onChange={e=>setF("title",e.target.value)} placeholder="Título do card..." style={{ ...s.input({fontSize:18,fontWeight:700,background:"transparent",border:"none",padding:"0",flex:1}) }} />
             <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontSize:22,padding:0,lineHeight:1 }}>×</button>
           </div>
         </div>
         <div style={{ display:"flex",gap:0 }}>
           <div style={{ flex:1,padding:"20px 24px",borderRight:`1px solid ${T.border}` }}>
             <label style={s.label}>📝 Descrição</label>
-            <textarea value={form.desc} onChange={e=>set("desc",e.target.value)} placeholder="Adicione uma descrição..." rows={3} style={{ ...s.input({resize:"vertical",marginBottom:20,fontFamily:"inherit",lineHeight:1.5}) }} />
+            <textarea value={form.desc} onChange={e=>setF("desc",e.target.value)} placeholder="Adicione uma descrição..." rows={3} style={{ ...s.input({resize:"vertical",marginBottom:20,fontFamily:"inherit",lineHeight:1.5}) }} />
             <label style={s.label}>☑️ Checklist {totalChecks>0 && `(${doneChecks}/${totalChecks})`}</label>
             {totalChecks>0 && (
               <div style={{ background:T.bg3,borderRadius:6,height:6,marginBottom:10 }}>
@@ -322,22 +419,30 @@ function CardModal({ card, colId, members, currentUser, onSave, onClose, onNotif
               <button onClick={addComment} style={s.btn(T.accent)}>Enviar</button>
             </div>
           </div>
-          <div style={{ width:200,padding:"20px 16px",display:"flex",flexDirection:"column",gap:16 }}>
+          <div style={{ width:210,padding:"20px 16px",display:"flex",flexDirection:"column",gap:16 }}>
             <div>
-              <label style={s.label}>Tipo</label>
-              <select value={form.type} onChange={e=>set("type",e.target.value)} style={{ ...s.input({padding:"6px 10px",fontSize:13}) }}>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                <label style={{...s.label,marginBottom:0}}>Tipo</label>
+                <button onClick={onManageTypes} style={{ background:"none",border:"none",cursor:"pointer",color:T.accent,fontSize:11,fontWeight:700,padding:0 }}>+ Gerenciar</button>
+              </div>
+              <select value={form.type} onChange={e=>setF("type",e.target.value)} style={{ ...s.input({padding:"6px 10px",fontSize:13}) }}>
+                {taskTypes.map(t=><option key={t}>{t}</option>)}
+              </select>
             </div>
             <div>
-              <label style={s.label}>Prioridade</label>
-              <select value={form.priority} onChange={e=>set("priority",e.target.value)} style={{ ...s.input({padding:"6px 10px",fontSize:13}) }}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>
-            </div>
-            <div>
-              <label style={s.label}>Pontos ⭐</label>
-              <input type="number" value={form.points} onChange={e=>set("points",+e.target.value)} style={s.input({padding:"6px 10px",fontSize:13})} />
+              <label style={s.label}>Prioridade & Pontos</label>
+              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                {PRIORITIES.map(p => (
+                  <div key={p.id} onClick={()=>handlePriorityChange(p.id)} style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${form.priority===p.id ? p.color : T.border}`,cursor:"pointer",background:form.priority===p.id ? p.color+"18" : "transparent",transition:"all .15s" }}>
+                    <span style={{ fontSize:12,fontWeight:700,color:form.priority===p.id?p.color:T.textSub }}>{p.label}</span>
+                    <span style={{ fontSize:11,fontWeight:800,color:p.color }}>⭐{p.points}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             <div>
               <label style={s.label}>Prazo</label>
-              <input type="date" value={form.due} onChange={e=>set("due",e.target.value)} style={s.input({padding:"6px 10px",fontSize:13,colorScheme:"dark"})} />
+              <input type="date" value={form.due} onChange={e=>setF("due",e.target.value)} style={s.input({padding:"6px 10px",fontSize:13,colorScheme:"dark"})} />
             </div>
             <div>
               <label style={s.label}>Integrantes</label>
@@ -359,7 +464,7 @@ function CardModal({ card, colId, members, currentUser, onSave, onClose, onNotif
                 {(form.mentions||[]).map((m,i)=>(
                   <span key={i} style={{ ...s.badge(T.accent),display:"flex",alignItems:"center",gap:4 }}>
                     {m}
-                    <button onClick={()=>set("mentions",(form.mentions||[]).filter((_,j)=>j!==i))} style={{ background:"none",border:"none",color:T.accent,cursor:"pointer",padding:0,fontSize:14,lineHeight:1 }}>×</button>
+                    <button onClick={()=>setF("mentions",(form.mentions||[]).filter((_,j)=>j!==i))} style={{ background:"none",border:"none",color:T.accent,cursor:"pointer",padding:0,fontSize:14,lineHeight:1 }}>×</button>
                   </span>
                 ))}
               </div>
@@ -378,6 +483,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
   const cardMembers = members.filter(m=>(card.members||[]).includes(m.id));
   const done = (card.checklist||[]).filter(c=>c.done).length;
   const total = (card.checklist||[]).length;
+  const pri = getPriority(card.priority);
   return (
     <div draggable onDragStart={e=>{setDrag(true);e.dataTransfer.setData("card",JSON.stringify({card,fromCol:colId}));}} onDragEnd={()=>setDrag(false)}
       style={{ background:T.bg3,borderRadius:10,padding:"12px 14px",border:`1px solid ${drag?T.accent:T.border}`,cursor:"grab",opacity:drag?.5:1,marginBottom:8,transition:"border .15s",position:"relative" }}>
@@ -390,7 +496,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
       </div>
       <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:8 }}>
         <Pill label={card.type} color={T.accent} />
-        <Pill label={card.priority} color={priorityColor[card.priority]} />
+        <Pill label={pri.label} color={pri.color} />
       </div>
       {(card.mentions||[]).length>0 && <p style={{ fontSize:11,color:T.accent,margin:"0 0 8px",fontStyle:"italic" }}>{card.mentions.join(" ")}</p>}
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -401,7 +507,33 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
           {total>0 && <span style={{ fontSize:11,color:T.textMuted }}>☑️ {done}/{total}</span>}
           {card.comments?.length>0 && <span style={{ fontSize:11,color:T.textMuted }}>💬 {card.comments.length}</span>}
           {card.due && <span style={{ fontSize:11,color:T.textMuted }}>📅 {fmtDate(card.due)}</span>}
-          <span style={{ fontSize:11,color:T.amber,fontWeight:700 }}>⭐{card.points}</span>
+          <span style={{ fontSize:11,fontWeight:700,color:pri.color }}>⭐{card.points}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── ADD / EDIT COLUMN MODAL ────────────────────────────── */
+function ColumnModal({ col, onSave, onClose }) {
+  const COL_COLORS = [T.textMuted, T.blue, T.amber, T.green, T.red, T.pink, T.teal, T.accent];
+  const [title, setTitle] = useState(col?.title || "");
+  const [color, setColor] = useState(col?.color || T.textMuted);
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={s.card({padding:28,width:360,boxShadow:"0 24px 64px #000000cc"})}>
+        <h3 style={{ margin:"0 0 20px",fontWeight:800,color:T.text }}>{col ? "Editar coluna" : "Nova coluna"}</h3>
+        <label style={s.label}>Nome da coluna</label>
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex: Em Andamento" style={{ ...s.input(),marginBottom:14 }} autoFocus />
+        <label style={s.label}>Cor</label>
+        <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:24 }}>
+          {COL_COLORS.map(c=>(
+            <div key={c} onClick={()=>setColor(c)} style={{ width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",border:color===c?`3px solid ${T.text}`:"3px solid transparent",transition:"border .15s" }} />
+          ))}
+        </div>
+        <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+          <button onClick={onClose} style={s.btn(T.bg4,{color:T.text})}>Cancelar</button>
+          <button onClick={()=>{ if(title.trim()) onSave({ ...(col||{}), title:title.trim(), color, id: col?.id || `col_${uid()}`, cards: col?.cards||[], order: col?.order??999 }); }} style={s.btn(T.accent)}>Salvar</button>
         </div>
       </div>
     </div>
@@ -409,12 +541,16 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
 }
 
 /* ─── BOARD TAB ──────────────────────────────────────────── */
-function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
+function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes }) {
   const [modal, setModal] = useState(null);
+  const [colModal, setColModal] = useState(null);
+  const [typesModal, setTypesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
 
-  const handleDrop = (e,toColId) => {
+  const sortedCols = [...columns].sort((a,b)=>(a.order??0)-(b.order??0));
+
+  const handleDrop = (e, toColId) => {
     try {
       const { card, fromCol } = JSON.parse(e.dataTransfer.getData("card"));
       if(fromCol===toColId) return;
@@ -437,7 +573,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
     } catch {}
   };
 
-  const handleSave = (form,colId) => {
+  const handleSave = (form, colId) => {
     const newCols = columns.map(col=>{
       if(col.id!==colId) return col;
       if(form.id) return {...col,cards:(col.cards||[]).map(c=>c.id===form.id?form:c)};
@@ -455,7 +591,19 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
   };
 
   const handleDelete = (cid, colId) => {
-    updateColumns(columns.map(col=>col.id===colId ? {...col, cards:(col.cards||[]).filter(c=>c.id!==cid)} : col));
+    updateColumns(columns.map(col=>col.id===colId ? {...col,cards:(col.cards||[]).filter(c=>c.id!==cid)} : col));
+  };
+
+  const handleSaveCol = (colData) => {
+    const exists = columns.find(c=>c.id===colData.id);
+    if(exists) updateColumns(columns.map(c=>c.id===colData.id?colData:c));
+    else updateColumns([...columns,colData]);
+    setColModal(null);
+  };
+
+  const handleDeleteCol = (colId) => {
+    if(!confirm("Excluir coluna e todos os cards dela?")) return;
+    updateColumns(columns.filter(c=>c.id!==colId));
   };
 
   const filterCard = card => {
@@ -466,16 +614,17 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
 
   return (
     <div>
-      <div style={{ display:"flex",gap:10,marginBottom:20,alignItems:"center" }}>
+      <div style={{ display:"flex",gap:10,marginBottom:20,alignItems:"center",flexWrap:"wrap" }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({maxWidth:220})} />
         <select value={filterMember} onChange={e=>setFilterMember(e.target.value)} style={s.input({maxWidth:180})}>
           <option value="all">Todos os membros</option>
           {members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        <button onClick={()=>setModal({card:null,colId:"backlog"})} style={s.btn(T.accent,{marginLeft:"auto"})}>+ Novo Card</button>
+        <button onClick={()=>setModal({card:null,colId:sortedCols[0]?.id||"backlog"})} style={s.btn(T.accent,{marginLeft:"auto"})}>+ Novo Card</button>
+        <button onClick={()=>setColModal({})} style={s.btn(T.bg4,{color:T.text})}>+ Nova Coluna</button>
       </div>
       <div style={{ display:"flex",gap:14,overflowX:"auto",paddingBottom:16 }}>
-        {columns.map(col=>(
+        {sortedCols.map(col=>(
           <div key={col.id} onDragOver={e=>e.preventDefault()} onDrop={e=>handleDrop(e,col.id)}
             style={{ minWidth:272,maxWidth:272,background:T.bg1,borderRadius:12,border:`1px solid ${T.border}`,padding:12 }}>
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
@@ -484,7 +633,11 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
                 <span style={{ fontWeight:700,fontSize:14,color:T.text }}>{col.title}</span>
                 <span style={{ background:col.color+"22",color:col.color,borderRadius:20,fontSize:11,fontWeight:700,padding:"1px 8px" }}>{(col.cards||[]).filter(filterCard).length}</span>
               </div>
-              <button onClick={()=>setModal({card:null,colId:col.id})} style={{ background:col.color+"22",color:col.color,border:"none",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit" }}>+</button>
+              <div style={{ display:"flex",gap:4 }}>
+                <button onClick={()=>setColModal(col)} title="Editar coluna" style={{ background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontSize:13,padding:"2px 4px" }}>✏️</button>
+                <button onClick={()=>handleDeleteCol(col.id)} title="Excluir coluna" style={{ background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontSize:13,padding:"2px 4px" }}>🗑️</button>
+                <button onClick={()=>setModal({card:null,colId:col.id})} style={{ background:col.color+"22",color:col.color,border:"none",borderRadius:6,width:24,height:24,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit" }}>+</button>
+              </div>
             </div>
             {(col.cards||[]).filter(filterCard).map(card=>(
               <KanbanCard key={card.id} card={card} colId={col.id} members={members}
@@ -494,8 +647,17 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify }) {
             {(col.cards||[]).filter(filterCard).length===0 && <div style={{ textAlign:"center",padding:"20px 0",color:T.textMuted,fontSize:12 }}>Arraste um card aqui</div>}
           </div>
         ))}
+        <div style={{ minWidth:200,display:"flex",alignItems:"flex-start",paddingTop:2 }}>
+          <button onClick={()=>setColModal({})} style={{ background:T.bg3,border:`2px dashed ${T.border}`,borderRadius:12,padding:"14px 24px",cursor:"pointer",color:T.textMuted,fontSize:13,fontWeight:700,fontFamily:"inherit",width:"100%",transition:"all .2s" }}
+            onMouseEnter={e=>{e.target.style.borderColor=T.accent;e.target.style.color=T.accent;}}
+            onMouseLeave={e=>{e.target.style.borderColor=T.border;e.target.style.color=T.textMuted;}}>
+            + Adicionar coluna
+          </button>
+        </div>
       </div>
-      {modal && <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser} onSave={handleSave} onClose={()=>setModal(null)} onNotify={onNotify} />}
+      {modal && <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser} taskTypes={taskTypes} onSave={handleSave} onClose={()=>setModal(null)} onNotify={onNotify} onManageTypes={()=>setTypesModal(true)} />}
+      {colModal && <ColumnModal col={Object.keys(colModal).length?colModal:null} onSave={handleSaveCol} onClose={()=>setColModal(null)} />}
+      {typesModal && <ManageTypesModal types={taskTypes} onSave={(list)=>{ updateTaskTypes(list); setTypesModal(false); }} onClose={()=>setTypesModal(false)} />}
     </div>
   );
 }
@@ -520,7 +682,7 @@ function UsersTab({ members, updateMembers, columns }) {
     <div>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
         <h2 style={{ margin:0,fontSize:20,fontWeight:800,color:T.text }}>Controle de Usuários</h2>
-        <button onClick={()=>{setEditing("new");setForm({name:"",role:"",color:MEMBER_COLORS[0]});}} style={s.btn(T.accent)}>+ Novo Membro</button>
+        <button onClick={()=>{setEditing("new");setForm({name:"",role:"",color:MEMBER_COLORS[0],newPassword:""});}} style={s.btn(T.accent)}>+ Novo Membro</button>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16 }}>
         {ranked.map((m,i)=>{
@@ -547,7 +709,7 @@ function UsersTab({ members, updateMembers, columns }) {
                 <div style={{ background:m.color,borderRadius:99,height:5,width:`${total>0?(done/total)*100:0}%`,transition:"width .5s" }} />
               </div>
               <div style={{ display:"flex",gap:8 }}>
-                <button onClick={()=>{setEditing(m.id);setForm({...m});}} style={s.btn(T.bg4,{flex:1,color:T.text})}>Editar</button>
+                <button onClick={()=>{setEditing(m.id);setForm({...m,newPassword:""});}} style={s.btn(T.bg4,{flex:1,color:T.text})}>Editar</button>
                 <button onClick={()=>updateMembers(members.filter(x=>x.id!==m.id))} style={s.btn(T.redDim,{flex:1,color:T.red})}>Remover</button>
               </div>
             </div>
@@ -565,6 +727,8 @@ function UsersTab({ members, updateMembers, columns }) {
                 <input type={t} value={form[k]||""} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={s.input()} />
               </div>
             ))}
+            <label style={s.label}>{editing==="new" ? "Senha" : "Nova senha (deixe em branco p/ manter)"}</label>
+            <input type="password" value={form.newPassword||""} onChange={e=>setForm(f=>({...f,newPassword:e.target.value}))} placeholder={editing==="new"?"Defina uma senha":"••••••"} style={{ ...s.input(),marginBottom:12 }} />
             <label style={s.label}>Cor</label>
             <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:20 }}>
               {MEMBER_COLORS.map(c=><div key={c} onClick={()=>setForm(f=>({...f,color:c}))} style={{ width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?`3px solid ${T.text}`:"3px solid transparent",transition:"border .15s" }} />)}
@@ -572,7 +736,9 @@ function UsersTab({ members, updateMembers, columns }) {
             <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
               <button onClick={()=>setEditing(null)} style={s.btn(T.bg4,{color:T.text})}>Cancelar</button>
               <button onClick={()=>{
-                const data={...form,avatar:initials(form.name||"?")};
+                const pwdHash = form.newPassword ? hashPwd(form.newPassword) : (members.find(m=>m.id===editing)?.passwordHash||btoa("1234"));
+                const data={...form,avatar:initials(form.name||"?"),passwordHash:pwdHash};
+                delete data.newPassword;
                 if(editing==="new") updateMembers([...members,{...data,id:uid()}]);
                 else updateMembers(members.map(m=>m.id===editing?{...m,...data}:m));
                 setEditing(null);
@@ -603,8 +769,8 @@ function AnalyticsTab({ columns, members }) {
   }).sort((a,b)=>b.pts-a.pts);
   const maxPts = Math.max(...mStats.map(m=>m.pts),1);
 
-  const priCounts = {alta:0,média:0,baixa:0};
-  filtered.forEach(c=>priCounts[c.priority]++);
+  const priCounts = { facil:0, medio:0, dificil:0, complexo:0 };
+  filtered.forEach(c=>{ if(priCounts[c.priority]!==undefined) priCounts[c.priority]++; });
 
   const kpis = [
     ["Total",allCards.length,T.blue,"📋"],
@@ -672,10 +838,11 @@ function AnalyticsTab({ columns, members }) {
       <div style={s.card({padding:20})}>
         <h3 style={{ margin:"0 0 16px",fontSize:15,fontWeight:700,color:T.text }}>Distribuição por prioridade (concluídas)</h3>
         <div style={{ display:"flex",gap:16 }}>
-          {Object.entries(priCounts).map(([p,count])=>(
-            <div key={p} style={{ flex:1,textAlign:"center",background:priorityColor[p]+"18",borderRadius:10,padding:"16px 12px",border:`1px solid ${priorityColor[p]}33` }}>
-              <p style={{ margin:"0 0 4px",fontSize:32,fontWeight:900,color:priorityColor[p] }}>{count}</p>
-              <p style={{ margin:0,fontSize:13,color:T.text,fontWeight:600,textTransform:"capitalize" }}>{p}</p>
+          {PRIORITIES.map(p=>(
+            <div key={p.id} style={{ flex:1,textAlign:"center",background:p.color+"18",borderRadius:10,padding:"16px 12px",border:`1px solid ${p.color}33` }}>
+              <p style={{ margin:"0 0 4px",fontSize:32,fontWeight:900,color:p.color }}>{priCounts[p.id]||0}</p>
+              <p style={{ margin:"0 0 2px",fontSize:13,color:T.text,fontWeight:600 }}>{p.label}</p>
+              <p style={{ margin:0,fontSize:11,color:p.color,fontWeight:700 }}>⭐{p.points}pts</p>
             </div>
           ))}
         </div>
@@ -694,32 +861,14 @@ function CSVGuide({ onClose }) {
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontSize:22 }}>×</button>
         </div>
         {[
-          { plat:"📸 Instagram", icon:T.pink, steps:[
-            "Acesse o Meta Business Suite (business.facebook.com)",
-            "Vá em Insights → Conteúdo",
-            "Clique em Exportar dados (ícone de download)",
-            "Selecione o período desejado",
-            "Escolha formato CSV e baixe"
-          ]},
-          { plat:"🎵 TikTok", icon:T.red, steps:[
-            "Acesse o TikTok Studio (studio.tiktok.com)",
-            "Vá em Análises no menu lateral",
-            "Selecione o período de datas",
-            "Clique em Exportar dados no canto superior direito",
-            "Baixe o arquivo CSV"
-          ]},
-          { plat:"▶️ YouTube", icon:T.red, steps:[
-            "Acesse o YouTube Studio (studio.youtube.com)",
-            "Vá em Análises no menu lateral",
-            "Escolha o período desejado",
-            "Clique nos 3 pontos → Exportar relatório",
-            "Escolha CSV e baixe"
-          ]},
+          { plat:"📸 Instagram", icon:T.pink, steps:["Acesse o Meta Business Suite (business.facebook.com)","Vá em Insights → Conteúdo","Clique em Exportar dados (ícone de download)","Selecione o período desejado","Escolha formato CSV e baixe"]},
+          { plat:"🎵 TikTok", icon:T.red, steps:["Acesse o TikTok Studio (studio.tiktok.com)","Vá em Análises no menu lateral","Selecione o período de datas","Clique em Exportar dados no canto superior direito","Baixe o arquivo CSV"]},
+          { plat:"▶️ YouTube", icon:T.red, steps:["Acesse o YouTube Studio (studio.youtube.com)","Vá em Análises no menu lateral","Escolha o período desejado","Clique nos 3 pontos → Exportar relatório","Escolha CSV e baixe"]},
         ].map(({ plat, icon, steps })=>(
           <div key={plat} style={{ marginBottom:20 }}>
             <h3 style={{ margin:"0 0 10px",fontSize:15,fontWeight:700,color:icon }}>{plat}</h3>
             <ol style={{ margin:0,paddingLeft:20 }}>
-              {steps.map((s,i)=><li key={i} style={{ fontSize:13,color:T.textSub,marginBottom:6,lineHeight:1.5 }}>{s}</li>)}
+              {steps.map((step,i)=><li key={i} style={{ fontSize:13,color:T.textSub,marginBottom:6,lineHeight:1.5 }}>{step}</li>)}
             </ol>
           </div>
         ))}
@@ -786,7 +935,7 @@ function SocialTab({ data, updateData }) {
         <h2 style={{ margin:0,fontSize:20,fontWeight:800,color:T.text }}>Análise de Conteúdo</h2>
         <div style={{ display:"flex",gap:8 }}>
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={s.input({maxWidth:150})}>
-            {["views","likes","comments","shares"].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+            {["views","likes","comments","shares"].map(sv=><option key={sv} value={sv}>{sv.charAt(0).toUpperCase()+sv.slice(1)}</option>)}
           </select>
           <button onClick={()=>setGuide(true)} style={s.btn(T.bg4,{color:T.textSub,fontSize:12})}>📖 Como exportar</button>
           <label style={{ ...s.btn(T.teal,{cursor:"pointer",display:"flex",alignItems:"center",gap:6}), userSelect:"none" }}>
@@ -795,7 +944,6 @@ function SocialTab({ data, updateData }) {
           </label>
         </div>
       </div>
-
       <div style={{ display:"flex",gap:8,marginBottom:20 }}>
         {["instagram","tiktok","youtube"].map(p=>(
           <button key={p} onClick={()=>setPlatform(p)} style={{ padding:"8px 20px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:platform===p?PLATFORM_COLORS[p]:T.bg3,color:platform===p?"#fff":T.textMuted,transition:"all .2s" }}>
@@ -803,7 +951,6 @@ function SocialTab({ data, updateData }) {
           </button>
         ))}
       </div>
-
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24 }}>
         {[["👁️ Views",totals.views,"#fff"],["❤️ Curtidas",totals.likes,pc],["💬 Coments.",totals.comments,T.blue],["📤 Compart.",totals.shares,T.green]].map(([l,v,c])=>(
           <div key={l} style={s.card({padding:"14px 16px",textAlign:"center"})}>
@@ -812,7 +959,6 @@ function SocialTab({ data, updateData }) {
           </div>
         ))}
       </div>
-
       <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
         {posts.length===0 && (
           <div style={s.card({padding:40,textAlign:"center"})}>
@@ -870,11 +1016,11 @@ function SocialTab({ data, updateData }) {
 }
 
 /* ─── CALENDAR TAB ───────────────────────────────────────── */
-function CalendarTab({ members, columns, events, updateEvents }) {
+function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const [cur, setCur] = useState(new Date(2026,4,1));
   const [sel, setSel] = useState(null);
   const [addModal, setAddModal] = useState(null);
-  const [form, setForm] = useState({ title:"", type:"Post", memberId:"" });
+  const [form, setForm] = useState({ title:"", type: taskTypes[0]||"Post", memberId:"" });
 
   const year=cur.getFullYear(), month=cur.getMonth();
   const first=new Date(year,month,1).getDay();
@@ -885,7 +1031,6 @@ function CalendarTab({ members, columns, events, updateEvents }) {
   const isToday=d=>today.getFullYear()===year&&today.getMonth()===month&&today.getDate()===d;
   const dateStr=d=>`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const eventsFor=d=>events.filter(e=>e.date===dateStr(d));
-
   const allCards = columns.flatMap(c=>c.cards||[]);
   const memberColor = id => { const m=members.find(m=>m.id===id); return m?.color||T.textMuted; };
 
@@ -899,7 +1044,6 @@ function CalendarTab({ members, columns, events, updateEvents }) {
           <button onClick={()=>setCur(new Date(year,month+1))} style={{ background:T.bg3,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",color:T.text,fontSize:16 }}>›</button>
         </div>
       </div>
-
       <div style={s.card({overflow:"hidden"})}>
         <div style={{ display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:T.bg2,borderBottom:`1px solid ${T.border}` }}>
           {dayNames.map(d=><div key={d} style={{ padding:"10px 0",textAlign:"center",fontSize:11,fontWeight:700,color:T.textMuted }}>{d}</div>)}
@@ -969,7 +1113,7 @@ function CalendarTab({ members, columns, events, updateEvents }) {
             <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={{ ...s.input(),marginBottom:12 }} />
             <label style={s.label}>Tipo</label>
             <select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{ ...s.input(),marginBottom:12 }}>
-              {TASK_TYPES.map(t=><option key={t}>{t}</option>)}
+              {taskTypes.map(t=><option key={t}>{t}</option>)}
             </select>
             <label style={s.label}>Responsável</label>
             <select value={form.memberId} onChange={e=>setForm(f=>({...f,memberId:+e.target.value}))} style={{ ...s.input(),marginBottom:20 }}>
@@ -981,7 +1125,7 @@ function CalendarTab({ members, columns, events, updateEvents }) {
               <button onClick={()=>{
                 if(!form.title.trim()) return;
                 updateEvents([...events,{id:uid(),date:addModal,title:form.title,type:form.type,memberId:form.memberId}]);
-                setAddModal(null); setForm({title:"",type:"Post",memberId:""});
+                setAddModal(null); setForm({title:"",type:taskTypes[0]||"Post",memberId:""});
               }} style={s.btn(T.accent)}>Salvar</button>
             </div>
           </div>
@@ -997,14 +1141,21 @@ export default function App() {
   const [columns, setColumns] = useState([]);
   const [events, setEvents] = useState([]);
   const [socialData, setSocialData] = useState({});
-  
+  const [taskTypes, setTaskTypes] = useState(DEFAULT_TASK_TYPES);
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("board");
   const [notifs, setNotifs] = useState({});
 
-  // 1. Listeners do Firebase
+  // Auto-login por localStorage
   useEffect(() => {
-    // Injeta os dados iniciais caso o banco esteja vazio no primeiro carregamento
+    const savedId = localStorage.getItem(REMEMBER_KEY);
+    if (savedId && members.length > 0 && !currentUser) {
+      const found = members.find(m => String(m.id) === savedId);
+      if (found) setCurrentUser(found);
+    }
+  }, [members]);
+
+  useEffect(() => {
     const rootRef = ref(db, '/');
     onValue(rootRef, (snapshot) => {
       if (!snapshot.exists()) {
@@ -1012,31 +1163,30 @@ export default function App() {
           members: INIT_MEMBERS,
           columns: INIT_COLUMNS,
           events: INIT_EVENTS,
-          social: INIT_SOCIAL
+          social: INIT_SOCIAL,
+          taskTypes: DEFAULT_TASK_TYPES,
         });
       }
     }, { onlyOnce: true });
 
-    // Escuta as alterações em tempo real para as abas
-    const unsubMembers = onValue(ref(db, 'members'), snap => setMembers(snap.val() ? Object.values(snap.val()) : []));
-    const unsubColumns = onValue(ref(db, 'columns'), snap => setColumns(snap.val() ? Object.values(snap.val()) : []));
-    const unsubEvents  = onValue(ref(db, 'events'),  snap => setEvents(snap.val() ? Object.values(snap.val()) : []));
-    const unsubSocial  = onValue(ref(db, 'social'),  snap => setSocialData(snap.val() || {}));
+    const unsubMembers   = onValue(ref(db, 'members'),   snap => setMembers(snap.val() ? Object.values(snap.val()) : []));
+    const unsubColumns   = onValue(ref(db, 'columns'),   snap => setColumns(snap.val() ? Object.values(snap.val()) : []));
+    const unsubEvents    = onValue(ref(db, 'events'),    snap => setEvents(snap.val() ? Object.values(snap.val()) : []));
+    const unsubSocial    = onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {}));
+    const unsubTaskTypes = onValue(ref(db, 'taskTypes'), snap => { if(snap.val()) setTaskTypes(snap.val()); });
 
-    return () => {
-      unsubMembers(); unsubColumns(); unsubEvents(); unsubSocial();
-    };
+    return () => { unsubMembers(); unsubColumns(); unsubEvents(); unsubSocial(); unsubTaskTypes(); };
   }, []);
 
-  // 2. Funções de Escrita no Firebase
-  const updateMembers = (newMembers) => set(ref(db, 'members'), newMembers);
-  const updateColumns = (newCols) => set(ref(db, 'columns'), newCols);
-  const updateEvents  = (newEvents) => set(ref(db, 'events'), newEvents);
-  const updateSocial  = (newData) => set(ref(db, 'social'), newData);
+  const updateMembers   = (v) => set(ref(db, 'members'), v);
+  const updateColumns   = (v) => set(ref(db, 'columns'), v);
+  const updateEvents    = (v) => set(ref(db, 'events'), v);
+  const updateSocial    = (v) => set(ref(db, 'social'), v);
+  const updateTaskTypes = (v) => set(ref(db, 'taskTypes'), v);
 
-  const onLogin = (member) => setCurrentUser(member);
+  const onLogin    = (member) => setCurrentUser(member);
   const onRegister = (member) => updateMembers([...members, member]);
-  const onLogout = () => setCurrentUser(null);
+  const onLogout   = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
 
   const onNotify = useCallback((memberId, text) => {
     const notif = { id:uid(), text, time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}), read:false };
@@ -1047,50 +1197,50 @@ export default function App() {
   const clearNotifs = () => setNotifs(n=>({ ...n, [currentUser.id]: (n[currentUser.id]||[]).map(x=>({...x,read:true})) }));
 
   const TABS = [
-    { id:"board",    label:"Board",        icon:"📋" },
-    { id:"users",    label:"Usuários",     icon:"👥" },
-    { id:"analytics",label:"Análise",      icon:"📊" },
-    { id:"social",   label:"Social Media", icon:"📱" },
-    { id:"calendar", label:"Calendário",   icon:"📅" },
+    { id:"board",     label:"Board",        icon:"📋" },
+    { id:"users",     label:"Usuários",     icon:"👥" },
+    { id:"analytics", label:"Análise",      icon:"📊" },
+    { id:"social",    label:"Social Media", icon:"📱" },
+    { id:"calendar",  label:"Calendário",   icon:"📅" },
   ];
 
-  if(!currentUser) return <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />;
+  if (!currentUser) return <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />;
 
   return (
-    <div style={{ minHeight:"100vh",background:T.bg0,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text }}>
-      <div style={{ background:T.bg1,borderBottom:`1px solid ${T.border}`,padding:"0 24px",position:"sticky",top:0,zIndex:100 }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",maxWidth:1400,margin:"0 auto" }}>
-          <div style={{ display:"flex",alignItems:"center",gap:10,padding:"14px 0" }}>
-            <div style={{ width:32,height:32,borderRadius:8,background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:900,fontSize:16 }}>SM</div>
-            <span style={{ fontWeight:900,fontSize:18,color:T.text,letterSpacing:-0.5 }}>Sistema Marketing</span>
+    <div style={{ minHeight:"100vh", background:T.bg0, fontFamily:"'DM Sans',system-ui,sans-serif", color:T.text }}>
+      <div style={{ background:T.bg1, borderBottom:`1px solid ${T.border}`, padding:"0 24px", position:"sticky", top:0, zIndex:100 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", maxWidth:1400, margin:"0 auto" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 0" }}>
+            <div style={{ width:32, height:32, borderRadius:8, background:T.accent, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:900, fontSize:16 }}>SM</div>
+            <span style={{ fontWeight:900, fontSize:18, color:T.text, letterSpacing:-0.5 }}>Sistema Marketing</span>
           </div>
           <nav style={{ display:"flex" }}>
             {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:"14px 14px",border:"none",cursor:"pointer",fontWeight:600,fontSize:13,display:"flex",alignItems:"center",gap:6,fontFamily:"inherit",background:"transparent",color:tab===t.id?T.accent:T.textMuted,borderBottom:tab===t.id?`2px solid ${T.accent}`:"2px solid transparent",transition:"all .15s" }}>
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:"14px 14px", border:"none", cursor:"pointer", fontWeight:600, fontSize:13, display:"flex", alignItems:"center", gap:6, fontFamily:"inherit", background:"transparent", color:tab===t.id?T.accent:T.textMuted, borderBottom:tab===t.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all .15s" }}>
                 <span>{t.icon}</span>{t.label}
               </button>
             ))}
           </nav>
-          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <NotifBell notifs={myNotifs} onClear={clearNotifs} />
-            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <Avatar member={currentUser} size={32} />
               <div>
-                <p style={{ margin:0,fontSize:13,fontWeight:700,color:T.text }}>{currentUser.name.split(" ")[0]}</p>
-                <p style={{ margin:0,fontSize:11,color:T.textMuted }}>{currentUser.role}</p>
+                <p style={{ margin:0, fontSize:13, fontWeight:700, color:T.text }}>{currentUser.name.split(" ")[0]}</p>
+                <p style={{ margin:0, fontSize:11, color:T.textMuted }}>{currentUser.role}</p>
               </div>
             </div>
-            <button onClick={onLogout} style={{ background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",color:T.textMuted,fontSize:12,fontFamily:"inherit" }}>Sair</button>
+            <button onClick={onLogout} style={{ background:"none", border:`1px solid ${T.border}`, borderRadius:8, padding:"6px 12px", cursor:"pointer", color:T.textMuted, fontSize:12, fontFamily:"inherit" }}>Sair</button>
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth:1400,margin:"0 auto",padding:"24px" }}>
-        {tab==="board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} />}
+      <div style={{ maxWidth:1400, margin:"0 auto", padding:"24px" }}>
+        {tab==="board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
         {tab==="users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
         {tab==="analytics" && <AnalyticsTab columns={columns} members={members} />}
         {tab==="social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
-        {tab==="calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} />}
+        {tab==="calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} />}
       </div>
     </div>
   );
