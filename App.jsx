@@ -42,6 +42,26 @@ const GLOBAL_STYLE = `
     from { opacity: 1; transform: translateY(0)   scale(1);    }
     to   { opacity: 0; transform: translateY(20px) scale(.95); }
   }
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .nav-label { display: none; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .analytics-grid { grid-template-columns: 1fr !important; }
+    .pri-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .header-nav { gap: 0 !important; }
+    .header-nav button { padding: 10px 8px !important; font-size: 18px !important; }
+    .board-toolbar { flex-direction: column !important; align-items: stretch !important; }
+    .board-toolbar input,
+    .board-toolbar select { max-width: 100% !important; width: 100% !important; }
+    .board-toolbar .toolbar-actions { display: flex; gap: 8px; }
+    .card-modal-body { flex-direction: column !important; }
+    .card-modal-right { width: 100% !important; border-right: none !important; border-top: 1px solid #2e2e3a; }
+    .users-grid { grid-template-columns: 1fr !important; }
+    .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
+    .header-user-info { display: none !important; }
+    .header-right { gap: 8px !important; }
+  }
 `;
 
 /* ─── THEME ─────────────────────────────────────────────── */
@@ -234,7 +254,7 @@ function Toast({ toast }) {
       borderRadius: 14, padding: "14px 20px",
       boxShadow: "0 8px 32px #00000099",
       animation: `${leaving ? "toastOut" : "toastIn"} .35s ease forwards`,
-      minWidth: 280, maxWidth: 360,
+      minWidth: 260, maxWidth: 340,
     }}>
       <div style={{
         width: 40, height: 40, borderRadius: "50%",
@@ -242,11 +262,11 @@ function Toast({ toast }) {
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 20, flexShrink: 0,
       }}>✅</div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.text }}>
           Tarefa concluída!
         </p>
-        <p style={{ margin: "0 0 4px", fontSize: 12, color: T.textSub, lineHeight: 1.4 }}>
+        <p style={{ margin: "0 0 4px", fontSize: 12, color: T.textSub, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {toast.title}
         </p>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.amber + "22", border: `1px solid ${T.amber}44`, borderRadius: 20, padding: "2px 10px" }}>
@@ -262,9 +282,10 @@ function Toast({ toast }) {
 function ToastContainer({ toasts }) {
   return (
     <div style={{
-      position: "fixed", bottom: 28, right: 28,
+      position: "fixed", bottom: 20, right: 16, left: 16,
       display: "flex", flexDirection: "column", gap: 10,
       zIndex: 9999, pointerEvents: "none",
+      alignItems: "flex-end",
     }}>
       {toasts.map(t => <Toast key={t.id} toast={t} />)}
     </div>
@@ -288,7 +309,7 @@ function NotifBell({ notifs, onClear }) {
         {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, background: T.red, color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>}
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: 36, width: 300, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 8px 32px #00000088`, zIndex: 999, overflow: "hidden" }}>
+        <div style={{ position: "fixed", right: 12, top: 60, width: "calc(100vw - 24px)", maxWidth: 300, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 8px 32px #00000088`, zIndex: 999, overflow: "hidden" }}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>Notificações</span>
             {notifs.length > 0 && <button onClick={onClear} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12 }}>Limpar</button>}
@@ -354,14 +375,14 @@ function LoginScreen({ members, onLogin, onRegister }) {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',system-ui,sans-serif", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 420, ...s.card({ padding: 36, boxShadow: "0 24px 64px #00000099" }) }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+      <div style={{ width: "100%", maxWidth: 420, ...s.card({ padding: 28, boxShadow: "0 24px 64px #00000099" }) }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Sistema Marketing</h1>
-          <p style={{ margin: "6px 0 0", color: T.textSub, fontSize: 14 }}>Plataforma de gestão de conteúdo</p>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Sistema Marketing</h1>
+          <p style={{ margin: "6px 0 0", color: T.textSub, fontSize: 13 }}>Plataforma de gestão de conteúdo</p>
         </div>
 
-        <div style={{ display: "flex", background: T.bg3, borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
+        <div style={{ display: "flex", background: T.bg3, borderRadius: 10, padding: 4, marginBottom: 20, gap: 4 }}>
           {["login", "register"].map(m => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: mode === m ? T.accent : "transparent", color: mode === m ? "#fff" : T.textMuted, transition: "all .2s" }}>
               {m === "login" ? "Entrar" : "Criar conta"}
@@ -376,7 +397,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
         {mode === "login" ? (
           <div>
             <label style={s.label}>Selecione seu perfil</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 200, overflowY: "auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 220, overflowY: "auto" }}>
               {members.length === 0 && <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center" }}>Carregando...</p>}
               {members.map(m => (
                 <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }}
@@ -479,7 +500,7 @@ function ManageTypesModal({ types, onSave, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={s.card({ padding: 28, width: 380, boxShadow: "0 24px 64px #000000cc" })}>
+      <div style={s.card({ padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px #000000cc" })}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h3 style={{ margin: 0, fontWeight: 800, color: T.text }}>Gerenciar Tipos</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22 }}>×</button>
@@ -589,32 +610,33 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "32px 16px" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width: "100%", maxWidth: 680, ...s.card({ padding: 0, boxShadow: "0 24px 64px #000000cc", overflow: "hidden" }) }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "16px" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "100%", maxWidth: 680, ...s.card({ padding: 0, boxShadow: "0 24px 64px #000000cc", overflow: "hidden", marginBottom: 16 }) }}>
         {/* Header */}
-        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
             <input
               value={form.title}
               onChange={e => setF("title", e.target.value)}
               placeholder="Título do card..."
-              style={s.input({ fontSize: 18, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1, width: "auto" })}
+              style={s.input({ fontSize: 16, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1, width: "auto" })}
               autoFocus
             />
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0 }}>×</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0, flexShrink: 0 }}>×</button>
           </div>
         </div>
 
-        <div style={{ display: "flex" }}>
+        {/* Body: column on mobile, row on desktop */}
+        <div className="card-modal-body" style={{ display: "flex", flexDirection: "row" }}>
           {/* LEFT */}
-          <div style={{ flex: 1, padding: "20px 24px", borderRight: `1px solid ${T.border}` }}>
+          <div style={{ flex: 1, padding: "16px 20px", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
             <label style={s.label}>📝 Descrição</label>
             <textarea
               value={form.desc}
               onChange={e => setF("desc", e.target.value)}
               placeholder="Descrição..."
               rows={3}
-              style={{ ...s.input({ resize: "vertical", marginBottom: 20, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }}
+              style={{ ...s.input({ resize: "vertical", marginBottom: 16, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }}
             />
 
             <label style={s.label}>☑️ Checklist {form.checklist.length > 0 && `(${doneChecks}/${form.checklist.length})`}</label>
@@ -630,7 +652,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 <button onClick={() => removeCheck(c.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, padding: 0 }}>×</button>
               </div>
             ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 16 }}>
               <input value={checkText} onChange={e => setCheckText(e.target.value)} onKeyDown={e => e.key === "Enter" && addCheck()} placeholder="Novo item..." style={s.input({ flex: 1, width: "auto" })} />
               <button onClick={addCheck} style={s.btn(T.bg4, { color: T.text })}>+</button>
             </div>
@@ -654,7 +676,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
           </div>
 
           {/* RIGHT */}
-          <div style={{ width: 220, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16, background: T.bg2 }}>
+          <div className="card-modal-right" style={{ width: 200, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, background: T.bg2, flexShrink: 0 }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ ...s.label, marginBottom: 0 }}>Tipo</label>
@@ -667,10 +689,10 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
             <div>
               <label style={s.label}>Prioridade & Pontos</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {PRIORITIES.map(p => (
                   <div key={p.id} onClick={() => handlePriorityChange(p.id)}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${form.priority === p.id ? p.color : T.border}`, cursor: "pointer", background: form.priority === p.id ? p.color + "18" : "transparent", transition: "all .15s" }}>
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 8, border: `1.5px solid ${form.priority === p.id ? p.color : T.border}`, cursor: "pointer", background: form.priority === p.id ? p.color + "18" : "transparent", transition: "all .15s" }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: form.priority === p.id ? p.color : T.textSub }}>{p.label}</span>
                     <span style={{ fontSize: 11, fontWeight: 800, color: p.color }}>⭐{p.points}</span>
                   </div>
@@ -723,7 +745,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────── */
-// Recebe onComplete(card, colId) — chamado ao clicar em ✅
 function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const [drag, setDrag] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
@@ -732,8 +753,6 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const pri = getPriority(card.priority);
   const today = new Date().toISOString().slice(0, 10);
   const isOverdue = card.due && card.due < today;
-
-  // Cards já na coluna "done" não mostram o botão de concluir
   const isDoneCol = colId === "done";
 
   return (
@@ -742,16 +761,14 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
       style={{
-        background: T.bg3, borderRadius: 10, padding: "12px 14px",
+        background: T.bg3, borderRadius: 10, padding: "12px 12px",
         border: `1px solid ${drag ? T.accent : isOverdue ? T.red + "55" : T.border}`,
         cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s"
       }}>
 
-      {/* ── Título + ações ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: T.text, lineHeight: 1.4, flex: 1 }}>{card.title}</span>
-        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-          {/* ✅ Botão Concluir — só aparece fora da coluna done */}
+        <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
           {!isDoneCol && (
             <button
               title="Concluir tarefa"
@@ -762,8 +779,8 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
                 borderRadius: 6,
                 cursor: "pointer",
                 color: T.green,
-                fontSize: 13,
-                padding: "2px 6px",
+                fontSize: 12,
+                padding: "2px 5px",
                 fontFamily: "inherit",
                 fontWeight: 700,
                 lineHeight: 1.4,
@@ -789,11 +806,11 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
         <div style={{ display: "flex" }}>
           {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} /></div>)}
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {checklist.length > 0 && <span style={{ fontSize: 11, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
-          {toArr(card.comments).length > 0 && <span style={{ fontSize: 11, color: T.textMuted }}>💬 {toArr(card.comments).length}</span>}
-          {card.due && <span style={{ fontSize: 11, color: isOverdue ? T.red : T.textMuted }}>📅 {fmtDate(card.due)}</span>}
-          <span style={{ fontSize: 11, fontWeight: 700, color: pri.color }}>⭐{card.points}</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {checklist.length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
+          {toArr(card.comments).length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>💬 {toArr(card.comments).length}</span>}
+          {card.due && <span style={{ fontSize: 10, color: isOverdue ? T.red : T.textMuted }}>📅 {fmtDate(card.due)}</span>}
+          <span style={{ fontSize: 10, fontWeight: 700, color: pri.color }}>⭐{card.points}</span>
         </div>
       </div>
     </div>
@@ -807,8 +824,8 @@ function ColumnModal({ col, onSave, onClose }) {
   const [color, setColor] = useState(col?.color || T.textMuted);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={s.card({ padding: 28, width: 360, boxShadow: "0 24px 64px #000000cc" })}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
         <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{col && col.id ? "Editar coluna" : "Nova coluna"}</h3>
         <label style={s.label}>Nome</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Em Revisão" style={{ ...s.input(), marginBottom: 14 }} autoFocus />
@@ -843,24 +860,20 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [typesModal, setTypesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
-
-  // ── Toast state ──
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, points) => {
     const id = uid();
     setToasts(ts => [...ts, { id, title, points }]);
-    // Remove após 3.6 s (animação de saída começa em 3.2 s)
     setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 3600);
   }, []);
 
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // ── Concluir card: move para coluna "done" e dispara toast ──
   const handleComplete = useCallback((card, fromColId) => {
     const doneCol = columns.find(c => c.id === "done");
     if (!doneCol) { alert("Coluna 'Concluído' não encontrada."); return; }
-    if (fromColId === "done") return; // já concluído
+    if (fromColId === "done") return;
 
     const newCols = columns.map(col => {
       if (col.id === fromColId) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
@@ -869,7 +882,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     });
     updateColumns(newCols);
 
-    // Notifica membros do card
     toArr(card.members).forEach(mid => {
       if (mid !== currentUser?.id) {
         const mb = members.find(m => m.id === mid);
@@ -877,7 +889,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       }
     });
 
-    // Dispara toast com os pontos
     addToast(card.title, card.points || getPriority(card.priority).points);
   }, [columns, updateColumns, members, currentUser, onNotify, addToast]);
 
@@ -955,49 +966,51 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   return (
     <div>
       {/* Toolbar */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 220 })} />
-        <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 200 })}>
-          <option value="all">Todos os membros</option>
-          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
+      <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 200 })} />
+        <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 180 })}>
+          <option value="all">Todos</option>
+          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name.split(" ")[0]}</option>)}
         </select>
         {(search || filterMember !== "all") && (
-          <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}` }}>
+          <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}`, flexShrink: 0 }}>
             {totalVisible} card{totalVisible !== 1 ? "s" : ""}
           </span>
         )}
-        <button
-          onClick={() => {
-            const firstColId = sortedCols[0]?.id;
-            if (!firstColId) { alert("Crie uma coluna primeiro."); return; }
-            setModal({ card: null, colId: firstColId });
-          }}
-          style={s.btn(T.accent, { marginLeft: "auto" })}>+ Novo Card</button>
-        <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text })}>+ Nova Coluna</button>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+          <button
+            onClick={() => {
+              const firstColId = sortedCols[0]?.id;
+              if (!firstColId) { alert("Crie uma coluna primeiro."); return; }
+              setModal({ card: null, colId: firstColId });
+            }}
+            style={s.btn(T.accent)}>+ Card</button>
+          <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text })}>+ Coluna</button>
+        </div>
       </div>
 
       {/* Board */}
-      <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
         {sortedCols.map(col => (
           <div key={col.id}
             onDragOver={e => e.preventDefault()}
             onDrop={e => handleDrop(e, col.id)}
-            style={{ minWidth: 272, maxWidth: 272, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 12, flexShrink: 0 }}>
+            style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
             {/* Column header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color }} />
-                <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{col.title}</span>
-                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+                <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
+                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>
                   {col.cards.filter(filterCard).length}
                 </span>
               </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 13, padding: "2px 4px" }}>✏️</button>
-                <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 13, padding: "2px 4px" }}>🗑️</button>
+              <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
+                <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
                 <button
                   onClick={() => setModal({ card: null, colId: col.id })}
-                  style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+                  style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
               </div>
             </div>
 
@@ -1015,7 +1028,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
             ))}
 
             {col.cards.filter(filterCard).length === 0 && (
-              <div style={{ textAlign: "center", padding: "20px 0", color: T.textMuted, fontSize: 12 }}>
+              <div style={{ textAlign: "center", padding: "16px 0", color: T.textMuted, fontSize: 12 }}>
                 Arraste um card aqui
               </div>
             )}
@@ -1023,10 +1036,10 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         ))}
 
         {/* Add column button */}
-        <div style={{ minWidth: 200, flexShrink: 0, paddingTop: 2 }}>
+        <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
           <button
             onClick={() => setColModal({})}
-            style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "14px 24px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
+            style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "12px 20px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}>
             + Adicionar coluna
@@ -1050,7 +1063,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           onClose={() => setTypesModal(false)} />
       )}
 
-      {/* Toast container — renderizado dentro do BoardTab para ter acesso ao estado */}
       <ToastContainer toasts={toasts} />
     </div>
   );
@@ -1074,24 +1086,24 @@ function UsersTab({ members, updateMembers, columns }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Controle de Usuários</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Controle de Usuários</h2>
         <button onClick={() => { setEditing("new"); setForm({ name: "", role: "", color: MEMBER_COLORS[0], newPassword: "" }); }} style={s.btn(T.accent)}>+ Novo Membro</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
+      <div className="users-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
         {ranked.map((m, i) => {
           const { total, done, pts } = stats(m);
           return (
-            <div key={m.id} style={s.card({ padding: 20, position: "relative" })}>
-              <div style={{ position: "absolute", top: 14, right: 16, fontWeight: 900, fontSize: 24, color: i === 0 ? T.amber : T.textMuted }}>{i === 0 ? "🏆" : `#${i + 1}`}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <Avatar member={m} size={48} />
+            <div key={m.id} style={s.card({ padding: 18, position: "relative" })}>
+              <div style={{ position: "absolute", top: 12, right: 14, fontWeight: 900, fontSize: 22, color: i === 0 ? T.amber : T.textMuted }}>{i === 0 ? "🏆" : `#${i + 1}`}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <Avatar member={m} size={44} />
                 <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: T.text }}>{m.name}</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
                   <p style={{ margin: 0, fontSize: 12, color: T.textMuted }}>{m.role}</p>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                 {[["Tarefas", total, T.blue], ["Feitas", done, T.green], ["Pontos", pts, T.amber]].map(([l, v, c]) => (
                   <div key={l} style={{ background: c + "18", borderRadius: 8, padding: "8px 6px", textAlign: "center" }}>
                     <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: c }}>{v}</p>
@@ -1099,7 +1111,7 @@ function UsersTab({ members, updateMembers, columns }) {
                   </div>
                 ))}
               </div>
-              <div style={{ background: T.bg3, borderRadius: 99, height: 5, marginBottom: 14 }}>
+              <div style={{ background: T.bg3, borderRadius: 99, height: 5, marginBottom: 12 }}>
                 <div style={{ background: m.color, borderRadius: 99, height: 5, width: `${total > 0 ? (done / total) * 100 : 0}%`, transition: "width .5s" }} />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -1112,8 +1124,8 @@ function UsersTab({ members, updateMembers, columns }) {
       </div>
 
       {editing && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={e => e.target === e.currentTarget && setEditing(null)}>
-          <div style={s.card({ padding: 28, width: 380, boxShadow: "0 24px 64px #000000cc" })}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setEditing(null)}>
+          <div style={s.card({ padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px #000000cc" })}>
             <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{editing === "new" ? "Novo Membro" : "Editar"}</h3>
             {[["Nome", "name"], ["Cargo", "role"]].map(([l, k]) => (
               <div key={k} style={{ marginBottom: 12 }}>
@@ -1178,29 +1190,31 @@ function AnalyticsTab({ columns, members }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Produção</h2>
-        <select value={filter} onChange={e => setFilter(e.target.value)} style={s.select({ maxWidth: 220 })}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Análise de Produção</h2>
+        <select value={filter} onChange={e => setFilter(e.target.value)} style={s.select({ maxWidth: 200 })}>
           <option value="all">Todos os membros</option>
           {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
         </select>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+      {/* KPI grid: 4 cols desktop, 2 cols mobile */}
+      <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
         {kpis.map(([l, v, c, icon]) => (
-          <div key={l} style={s.card({ padding: "16px 20px" })}>
-            <p style={{ margin: "0 0 4px", fontSize: 22 }}>{icon}</p>
-            <p style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 900, color: c }}>{v}</p>
-            <p style={{ margin: 0, fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{l}</p>
+          <div key={l} style={s.card({ padding: "14px 16px" })}>
+            <p style={{ margin: "0 0 4px", fontSize: 20 }}>{icon}</p>
+            <p style={{ margin: "0 0 2px", fontSize: 24, fontWeight: 900, color: c }}>{v}</p>
+            <p style={{ margin: 0, fontSize: 11, color: T.textMuted, fontWeight: 600 }}>{l}</p>
           </div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-        <div style={s.card({ padding: 20 })}>
-          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: T.text }}>Tipos mais realizados</h3>
+      {/* Charts: 2 cols desktop, 1 col mobile */}
+      <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={s.card({ padding: 18 })}>
+          <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Tipos mais realizados</h3>
           {topTypes.length === 0
             ? <p style={{ color: T.textMuted, fontSize: 13 }}>Sem dados</p>
             : topTypes.map(([type, count]) => (
-              <div key={type} style={{ marginBottom: 12 }}>
+              <div key={type} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
                   <span style={{ fontWeight: 600, color: T.text }}>{type}</span>
                   <span style={{ color: T.textMuted }}>{count}</span>
@@ -1211,16 +1225,16 @@ function AnalyticsTab({ columns, members }) {
               </div>
             ))}
         </div>
-        <div style={s.card({ padding: 20 })}>
-          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: T.text }}>Pontuação por integrante</h3>
+        <div style={s.card({ padding: 18 })}>
+          <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Pontuação por integrante</h3>
           {mStats.map((m, i) => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, width: 18 }}>#{i + 1}</span>
-              <Avatar member={m} size={26} />
-              <div style={{ flex: 1 }}>
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, width: 18 }}>#{i + 1}</span>
+              <Avatar member={m} size={24} />
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                  <span style={{ fontWeight: 600, color: T.text }}>{m.name.split(" ")[0]}</span>
-                  <span style={{ color: T.amber, fontWeight: 700 }}>⭐ {m.pts}</span>
+                  <span style={{ fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
+                  <span style={{ color: T.amber, fontWeight: 700, flexShrink: 0 }}>⭐ {m.pts}</span>
                 </div>
                 <div style={{ background: T.bg3, borderRadius: 99, height: 5 }}>
                   <div style={{ background: m.color, borderRadius: 99, height: 5, width: `${(m.pts / maxPts) * 100}%`, transition: "width .5s" }} />
@@ -1230,14 +1244,15 @@ function AnalyticsTab({ columns, members }) {
           ))}
         </div>
       </div>
-      <div style={s.card({ padding: 20 })}>
-        <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: T.text }}>Distribuição por prioridade (concluídas)</h3>
-        <div style={{ display: "flex", gap: 16 }}>
+      {/* Priority grid: 4 cols desktop, 2 cols mobile */}
+      <div style={s.card({ padding: 18 })}>
+        <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Distribuição por prioridade (concluídas)</h3>
+        <div className="pri-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
           {PRIORITIES.map(p => (
-            <div key={p.id} style={{ flex: 1, textAlign: "center", background: p.color + "18", borderRadius: 10, padding: "16px 12px", border: `1px solid ${p.color}33` }}>
-              <p style={{ margin: "0 0 4px", fontSize: 32, fontWeight: 900, color: p.color }}>{priCounts[p.id] || 0}</p>
-              <p style={{ margin: "0 0 2px", fontSize: 13, color: T.text, fontWeight: 600 }}>{p.label}</p>
-              <p style={{ margin: 0, fontSize: 11, color: p.color, fontWeight: 700 }}>⭐{p.points}pts</p>
+            <div key={p.id} style={{ textAlign: "center", background: p.color + "18", borderRadius: 10, padding: "14px 10px", border: `1px solid ${p.color}33` }}>
+              <p style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 900, color: p.color }}>{priCounts[p.id] || 0}</p>
+              <p style={{ margin: "0 0 2px", fontSize: 12, color: T.text, fontWeight: 600 }}>{p.label}</p>
+              <p style={{ margin: 0, fontSize: 10, color: p.color, fontWeight: 700 }}>⭐{p.points}pts</p>
             </div>
           ))}
         </div>
@@ -1250,9 +1265,9 @@ function AnalyticsTab({ columns, members }) {
 function CSVGuide({ onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={s.card({ padding: 32, maxWidth: 600, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px #000000cc" })}>
+      <div style={s.card({ padding: 24, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px #000000cc" })}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontWeight: 800, color: T.text }}>📖 Como exportar dados</h2>
+          <h2 style={{ margin: 0, fontWeight: 800, color: T.text, fontSize: 17 }}>📖 Como exportar dados</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22 }}>×</button>
         </div>
         {[
@@ -1260,14 +1275,14 @@ function CSVGuide({ onClose }) {
           { plat: "🎵 TikTok", color: T.red, steps: ["Acesse o TikTok Studio (studio.tiktok.com)", "Vá em Análises", "Selecione o período", "Clique em Exportar dados → CSV"] },
           { plat: "▶️ YouTube", color: T.red, steps: ["Acesse o YouTube Studio (studio.youtube.com)", "Vá em Análises", "Escolha o período", "3 pontos → Exportar relatório → CSV"] },
         ].map(({ plat, color, steps }) => (
-          <div key={plat} style={{ marginBottom: 20 }}>
-            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color }}>{plat}</h3>
-            <ol style={{ margin: 0, paddingLeft: 20 }}>
+          <div key={plat} style={{ marginBottom: 18 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color }}>{plat}</h3>
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
               {steps.map((step, i) => <li key={i} style={{ fontSize: 13, color: T.textSub, marginBottom: 6, lineHeight: 1.5 }}>{step}</li>)}
             </ol>
           </div>
         ))}
-        <button onClick={onClose} style={s.btn(T.accent, { width: "100%", marginTop: 20, padding: 12 })}>Entendido!</button>
+        <button onClick={onClose} style={s.btn(T.accent, { width: "100%", marginTop: 16, padding: 12 })}>Entendido!</button>
       </div>
     </div>
   );
@@ -1317,34 +1332,36 @@ function SocialTab({ data, updateData }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 150 })}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 130 })}>
             {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv} style={{ background: T.bg3 }}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
           </select>
-          <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Como exportar</button>
+          <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Exportar</button>
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
-            📥 Importar CSV <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display: "none" }} />
+            📥 CSV <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display: "none" }} />
           </label>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      {/* Platform tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["instagram","tiktok","youtube"].map(p => (
-          <button key={p} onClick={() => setPlatform(p)} style={{ padding: "8px 20px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
+          <button key={p} onClick={() => setPlatform(p)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
             {PLATFORM_ICONS[p]} {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+      {/* KPI: 2x2 on mobile */}
+      <div className="social-kpi" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
         {[["👁️ Views", totals.views, "#fff"],["❤️ Curtidas", totals.likes, pc],["💬 Coments.", totals.comments, T.blue],["📤 Compart.", totals.shares, T.green]].map(([l, v, c]) => (
-          <div key={l} style={s.card({ padding: "14px 16px", textAlign: "center" })}>
-            <p style={{ margin: "0 0 2px", fontSize: 24, fontWeight: 900, color: c }}>{fmtNum(v)}</p>
-            <p style={{ margin: 0, fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{l}</p>
+          <div key={l} style={s.card({ padding: "12px 14px", textAlign: "center" })}>
+            <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 900, color: c }}>{fmtNum(v)}</p>
+            <p style={{ margin: 0, fontSize: 10, color: T.textMuted, fontWeight: 500 }}>{l}</p>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {posts.length === 0 && (
           <div style={s.card({ padding: 40, textAlign: "center" })}>
             <p style={{ fontSize: 32, margin: "0 0 8px" }}>📂</p>
@@ -1355,39 +1372,39 @@ function SocialTab({ data, updateData }) {
           const eng = post.likes + post.comments + post.shares;
           const engRate = post.views > 0 ? ((eng / post.views) * 100).toFixed(1) : "0.0";
           return (
-            <div key={post.id} style={s.card({ padding: 20, display: "flex", gap: 20, alignItems: "flex-start" })}>
-              <div style={{ width: 100, height: 70, borderRadius: 10, background: `${pc}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0, position: "relative" }}>
+            <div key={post.id} style={s.card({ padding: 16, display: "flex", gap: 14, alignItems: "flex-start" })}>
+              <div style={{ width: 60, height: 56, borderRadius: 10, background: `${pc}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, position: "relative" }}>
                 {post.thumbnail}
-                {rank === 0 && <div style={{ position: "absolute", top: -8, right: -8, background: T.amber, color: "#000", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900 }}>🏆</div>}
+                {rank === 0 && <div style={{ position: "absolute", top: -8, right: -8, background: T.amber, color: "#000", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900 }}>🏆</div>}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div>
-                    <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 15, color: T.text }}>{post.title}</p>
-                    <div style={{ display: "flex", gap: 8 }}><Pill label={post.type} color={pc} /><span style={{ fontSize: 11, color: T.textMuted }}>📅 {post.date}</span></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</p>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Pill label={post.type} color={pc} /><span style={{ fontSize: 11, color: T.textMuted }}>📅 {post.date}</span></div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: T.text }}>{fmtNum(post.views)}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>visualizações</p>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>{fmtNum(post.views)}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>views</p>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 20, marginBottom: 10 }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
                   {[["❤️", post.likes,"Curtidas"],["💬", post.comments,"Coments."],["📤", post.shares,"Compart."]].map(([icon, val, label]) => (
                     <div key={label} style={{ textAlign: "center" }}>
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(val)}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{icon} {label}</p>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{fmtNum(val)}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{icon} {label}</p>
                     </div>
                   ))}
                   <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}%</p>
-                    <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>Engajamento</p>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}%</p>
+                    <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>Eng.</p>
                   </div>
                 </div>
-                <div style={{ background: T.bg3, borderRadius: 99, height: 5 }}>
-                  <div style={{ background: pc, borderRadius: 99, height: 5, width: `${Math.min(+engRate / 15 * 100, 100)}%`, transition: "width .5s" }} />
+                <div style={{ background: T.bg3, borderRadius: 99, height: 4 }}>
+                  <div style={{ background: pc, borderRadius: 99, height: 4, width: `${Math.min(+engRate / 15 * 100, 100)}%`, transition: "width .5s" }} />
                 </div>
               </div>
-              <button onClick={() => updateData({ ...data, [platform]: toArr(data[platform]).filter(p => p.id !== post.id) })} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, padding: 0 }}>🗑️</button>
+              <button onClick={() => updateData({ ...data, [platform]: toArr(data[platform]).filter(p => p.id !== post.id) })} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, padding: 0, flexShrink: 0 }}>🗑️</button>
             </div>
           );
         })}
@@ -1418,38 +1435,41 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Calendário</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Calendário</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setCur(new Date(year, month - 1))} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.text, fontSize: 16 }}>‹</button>
-          <span style={{ fontWeight: 700, fontSize: 15, color: T.text, minWidth: 160, textAlign: "center" }}>{MONTHS[month]} {year}</span>
+          <span style={{ fontWeight: 700, fontSize: 13, color: T.text, minWidth: 120, textAlign: "center" }}>{MONTHS[month].slice(0,3)} {year}</span>
           <button onClick={() => setCur(new Date(year, month + 1))} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.text, fontSize: 16 }}>›</button>
         </div>
       </div>
-      <div style={s.card({ overflow: "hidden" })}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
-          {DAY_NAMES.map(d => <div key={d} style={{ padding: "10px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: T.textMuted }}>{d}</div>)}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
-          {Array.from({ length: first }).map((_, i) => <div key={`e${i}`} style={{ minHeight: 90, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, background: T.bg1 }} />)}
-          {Array.from({ length: days }).map((_, i) => {
-            const day = i + 1;
-            const evs = eventsFor(day);
-            const dueCards = allCards.filter(c => c.due === dateStr(day));
-            const isSel = sel === day;
-            return (
-              <div key={day} onClick={() => setSel(day === sel ? null : day)}
-                style={{ minHeight: 90, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "8px 6px", cursor: "pointer", background: isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, transition: "background .15s" }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 12, marginBottom: 4 }}>{day}</div>
-                {evs.map(ev => <div key={ev.id} style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 4px 4px 0", padding: "1px 5px", marginBottom: 2, fontSize: 10, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</div>)}
-                {dueCards.map(c => <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 4px 4px 0", padding: "1px 5px", marginBottom: 2, fontSize: 10, fontWeight: 600, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⭐ {c.title}</div>)}
-              </div>
-            );
-          })}
+      <div style={{ overflowX: "auto" }}>
+        <div style={s.card({ overflow: "hidden", minWidth: 320 })}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
+            {DAY_NAMES.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: T.textMuted }}>{d}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
+            {Array.from({ length: first }).map((_, i) => <div key={`e${i}`} style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, background: T.bg1 }} />)}
+            {Array.from({ length: days }).map((_, i) => {
+              const day = i + 1;
+              const evs = eventsFor(day);
+              const dueCards = allCards.filter(c => c.due === dateStr(day));
+              const isSel = sel === day;
+              return (
+                <div key={day} onClick={() => setSel(day === sel ? null : day)}
+                  style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "6px 4px", cursor: "pointer", background: isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, transition: "background .15s" }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 3 }}>{day}</div>
+                  {evs.slice(0, 2).map(ev => <div key={ev.id} style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</div>)}
+                  {dueCards.slice(0, 1).map(c => <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⭐ {c.title}</div>)}
+                  {(evs.length + dueCards.length) > 3 && <div style={{ fontSize: 9, color: T.textMuted }}>+{evs.length + dueCards.length - 3}</div>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
       {sel && (
-        <div style={s.card({ marginTop: 16, padding: 16 })}>
+        <div style={s.card({ marginTop: 14, padding: 14 })}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>Dia {sel} de {MONTHS[month]}</h3>
             <button onClick={() => setAddModal(dateStr(sel))} style={s.btn(T.accent, { fontSize: 12, padding: "6px 12px" })}>+ Evento</button>
@@ -1457,19 +1477,19 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
           {eventsFor(sel).map(ev => {
             const mb = members.find(m => m.id === ev.memberId);
             return (
-              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
+              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
                 <div style={{ width: 3, height: 36, borderRadius: 99, background: memberColor(ev.memberId) }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text }}>{ev.title}</p>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</p>
                   <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{ev.type}</p>
                 </div>
-                {mb && <Avatar member={mb} size={28} />}
+                {mb && <Avatar member={mb} size={26} />}
                 <button onClick={() => updateEvents(toArr(events).filter(e => e.id !== ev.id))} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>🗑️</button>
               </div>
             );
           })}
           {allCards.filter(c => c.due === dateStr(sel)).map(c => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
               <div style={{ width: 3, height: 36, borderRadius: 99, background: T.amber }} />
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text }}>{c.title}</p>
@@ -1478,13 +1498,13 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             </div>
           ))}
           {eventsFor(sel).length === 0 && allCards.filter(c => c.due === dateStr(sel)).length === 0 && (
-            <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Nenhum evento</p>
+            <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "14px 0" }}>Nenhum evento</p>
           )}
         </div>
       )}
       {addModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={e => e.target === e.currentTarget && setAddModal(null)}>
-          <div style={s.card({ padding: 28, width: 360, boxShadow: "0 24px 64px #000000cc" })}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setAddModal(null)}>
+          <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
             <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>Novo evento — {addModal}</h3>
             <label style={s.label}>Título</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ ...s.input(), marginBottom: 12 }} />
@@ -1577,11 +1597,11 @@ export default function App() {
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
-    { id: "board",     label: "Board",        icon: "📋" },
-    { id: "users",     label: "Usuários",     icon: "👥" },
-    { id: "analytics", label: "Análise",      icon: "📊" },
-    { id: "social",    label: "Social Media", icon: "📱" },
-    { id: "calendar",  label: "Calendário",   icon: "📅" },
+    { id: "board",     label: "Board",    icon: "📋" },
+    { id: "users",     label: "Usuários", icon: "👥" },
+    { id: "analytics", label: "Análise",  icon: "📊" },
+    { id: "social",    label: "Social",   icon: "📱" },
+    { id: "calendar",  label: "Agenda",   icon: "📅" },
   ];
 
   if (!currentUser) {
@@ -1599,34 +1619,39 @@ export default function App() {
       <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
         {/* HEADER */}
         <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>SM</div>
-              <span style={{ fontWeight: 900, fontSize: 18, color: T.text, letterSpacing: -0.5 }}>Sistema Marketing</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 12px" }}>
+            {/* Logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", flexShrink: 0 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>SM</div>
+              <span style={{ fontWeight: 900, fontSize: 15, color: T.text, letterSpacing: -0.5, display: "none" }} className="nav-label" >Sistema Marketing</span>
             </div>
-            <nav style={{ display: "flex" }}>
+            {/* Nav */}
+            <nav className="header-nav" style={{ display: "flex", flex: 1, justifyContent: "center" }}>
               {TABS.map(t => (
-                <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "14px 14px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s" }}>
-                  <span>{t.icon}</span>{t.label}
+                <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 10px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 16 }}>{t.icon}</span>
+                  <span className="nav-label">{t.label}</span>
                 </button>
               ))}
             </nav>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Right */}
+            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <NotifBell notifs={myNotifs} onClear={clearNotifs} />
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Avatar member={currentUser} size={32} />
+              <div className="header-user-info" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Avatar member={currentUser} size={30} />
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{currentUser.role}</p>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{currentUser.role}</p>
                 </div>
               </div>
-              <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.textMuted, fontSize: 12, fontFamily: "inherit" }}>Sair</button>
+              <Avatar member={currentUser} size={28} style={{ display: "flex" }} />
+              <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: T.textMuted, fontSize: 11, fontFamily: "inherit" }}>Sair</button>
             </div>
           </div>
         </div>
 
         {/* CONTENT */}
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 24px 48px" }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 12px 48px" }}>
           {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
           {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
           {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
