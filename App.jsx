@@ -50,17 +50,25 @@ const hashPwd = (pwd) => btoa(encodeURIComponent(pwd));
 const REMEMBER_KEY = "mkt_remember_user";
 
 /* ─── FIREBASE NORMALIZERS ───────────────────────────────── */
-// Firebase transforma arrays em objetos {0:..., 1:...} — isso converte de volta
 const toArr = (val) => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
   return Object.values(val);
 };
 
-// Normaliza uma coluna, garantindo que cards seja sempre array
-const normalizeCol = (col) => ({ ...col, cards: toArr(col.cards) });
+const normalizeCard = (card) => ({
+  ...card,
+  members: toArr(card.members),
+  mentions: toArr(card.mentions),
+  comments: toArr(card.comments),
+  checklist: toArr(card.checklist),
+});
 
-// Normaliza lista de colunas
+const normalizeCol = (col) => ({
+  ...col,
+  cards: toArr(col.cards).map(normalizeCard),
+});
+
 const normalizeCols = (val) => {
   if (!val) return [];
   return toArr(val).map(normalizeCol);
@@ -196,6 +204,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
 
   const handleLogin = () => {
     setError("");
@@ -212,18 +221,28 @@ function LoginScreen({ members, onLogin, onRegister }) {
   const handleRegister = () => {
     if (!name.trim()) { setError("Digite seu nome."); return; }
     if (!newPassword.trim()) { setError("Defina uma senha."); return; }
-    onRegister({ id: uid(), name: name.trim(), avatar: initials(name.trim()), color, role: role || "Membro", passwordHash: hashPwd(newPassword) });
-    setMode("login"); setName(""); setNewPassword(""); setError("");
+    const newMember = {
+      id: uid(),
+      name: name.trim(),
+      avatar: initials(name.trim()),
+      color,
+      role: role.trim() || "Membro",
+      passwordHash: hashPwd(newPassword)
+    };
+    onRegister(newMember);
+    setMode("login");
+    setName(""); setNewPassword(""); setError("");
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',system-ui,sans-serif" }}>
-      <div style={{ width: 420, ...s.card({ padding: 36, boxShadow: "0 24px 64px #00000099" }) }}>
+    <div style={{ minHeight: "100vh", background: T.bg0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',system-ui,sans-serif", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 420, ...s.card({ padding: 36, boxShadow: "0 24px 64px #00000099" }) }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Sistema Marketing</h1>
           <p style={{ margin: "6px 0 0", color: T.textSub, fontSize: 14 }}>Plataforma de gestão de conteúdo</p>
         </div>
+
         <div style={{ display: "flex", background: T.bg3, borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
           {["login", "register"].map(m => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: mode === m ? T.accent : "transparent", color: mode === m ? "#fff" : T.textMuted, transition: "all .2s" }}>
@@ -231,14 +250,19 @@ function LoginScreen({ members, onLogin, onRegister }) {
             </button>
           ))}
         </div>
-        {error && <div style={{ background: T.redDim, border: `1px solid ${T.red}33`, borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 13, color: T.red }}>{error}</div>}
+
+        {error && (
+          <div style={{ background: T.redDim, border: `1px solid ${T.red}33`, borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 13, color: T.red }}>{error}</div>
+        )}
+
         {mode === "login" ? (
           <div>
             <label style={s.label}>Selecione seu perfil</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 200, overflowY: "auto" }}>
               {members.length === 0 && <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center" }}>Carregando...</p>}
               {members.map(m => (
-                <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selId === m.id ? T.accent : T.border}`, cursor: "pointer", background: selId === m.id ? T.accentDim : T.bg3, transition: "all .15s" }}>
+                <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selId === m.id ? T.accent : T.border}`, cursor: "pointer", background: selId === m.id ? T.accentDim : T.bg3, transition: "all .15s" }}>
                   <Avatar member={m} size={36} />
                   <div>
                     <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
@@ -248,37 +272,75 @@ function LoginScreen({ members, onLogin, onRegister }) {
                 </div>
               ))}
             </div>
+
             {selId && (
               <div style={{ marginBottom: 14 }}>
                 <label style={s.label}>Senha</label>
                 <div style={{ position: "relative" }}>
-                  <input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="Digite sua senha" style={{ ...s.input(), paddingRight: 40 }} />
-                  <button onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>{showPwd ? "🙈" : "👁️"}</button>
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleLogin()}
+                    placeholder="Digite sua senha"
+                    style={{ ...s.input(), paddingRight: 40 }}
+                  />
+                  <button onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>
+                    {showPwd ? "🙈" : "👁️"}
+                  </button>
                 </div>
               </div>
             )}
+
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <input type="checkbox" id="remember" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ accentColor: T.accent, width: 15, height: 15, cursor: "pointer" }} />
-              <label htmlFor="remember" style={{ fontSize: 13, color: T.textSub, cursor: "pointer" }}>Lembrar neste dispositivo</label>
+              <input
+                type="checkbox"
+                id="remember"
+                checked={remember}
+                onChange={e => setRemember(e.target.checked)}
+                style={{ accentColor: T.accent, width: 15, height: 15, cursor: "pointer" }}
+              />
+              <label htmlFor="remember" style={{ fontSize: 13, color: T.textSub, cursor: "pointer" }}>
+                Lembrar neste dispositivo
+              </label>
             </div>
-            <button onClick={handleLogin} disabled={!selId} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15, opacity: selId ? 1 : .4 })}>Entrar</button>
+
+            <button onClick={handleLogin} disabled={!selId} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15, opacity: selId ? 1 : .4 })}>
+              Entrar
+            </button>
           </div>
         ) : (
           <div>
             <label style={s.label}>Nome completo</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Maria Souza" style={{ ...s.input(), marginBottom: 14 }} />
+
             <label style={s.label}>Cargo / Função</label>
             <input value={role} onChange={e => setRole(e.target.value)} placeholder="Ex: Designer" style={{ ...s.input(), marginBottom: 14 }} />
+
             <label style={s.label}>Senha</label>
             <div style={{ position: "relative", marginBottom: 14 }}>
-              <input type={showPwd ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Crie uma senha" style={{ ...s.input(), paddingRight: 40 }} />
-              <button onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>{showPwd ? "🙈" : "👁️"}</button>
+              <input
+                type={showNewPwd ? "text" : "password"}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Crie uma senha"
+                style={{ ...s.input(), paddingRight: 40 }}
+              />
+              <button onClick={() => setShowNewPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>
+                {showNewPwd ? "🙈" : "👁️"}
+              </button>
             </div>
+
             <label style={s.label}>Cor do perfil</label>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-              {MEMBER_COLORS.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />)}
+              {MEMBER_COLORS.map(c => (
+                <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />
+              ))}
             </div>
-            <button onClick={handleRegister} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15 })}>Criar conta</button>
+
+            <button onClick={handleRegister} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15 })}>
+              Criar conta
+            </button>
           </div>
         )}
       </div>
@@ -290,8 +352,13 @@ function LoginScreen({ members, onLogin, onRegister }) {
 function ManageTypesModal({ types, onSave, onClose }) {
   const [list, setList] = useState([...types]);
   const [newType, setNewType] = useState("");
-  const add = () => { const t = newType.trim(); if (t && !list.includes(t)) { setList([...list, t]); setNewType(""); } };
+
+  const add = () => {
+    const t = newType.trim();
+    if (t && !list.includes(t)) { setList([...list, t]); setNewType(""); }
+  };
   const remove = t => setList(list.filter(x => x !== t));
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={s.card({ padding: 28, width: 380, boxShadow: "0 24px 64px #000000cc" })}>
@@ -308,7 +375,13 @@ function ManageTypesModal({ types, onSave, onClose }) {
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          <input value={newType} onChange={e => setNewType(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="Novo tipo..." style={s.input({ flex: 1 })} />
+          <input
+            value={newType}
+            onChange={e => setNewType(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && add()}
+            placeholder="Novo tipo..."
+            style={s.input({ flex: 1 })}
+          />
           <button onClick={add} style={s.btn(T.accent)}>+</button>
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -324,10 +397,24 @@ function ManageTypesModal({ types, onSave, onClose }) {
 function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClose, onNotify, onManageTypes }) {
   const isNew = !card?.id;
   const defP = PRIORITIES[0];
-  const [form, setForm] = useState(card ? { ...card, members: toArr(card.members), mentions: toArr(card.mentions), comments: toArr(card.comments), checklist: toArr(card.checklist) } : {
-    title: "", type: taskTypes[0] || "Post", points: defP.points,
-    members: [], priority: defP.id, due: "", desc: "", mentions: [], comments: [], checklist: []
+
+  const [form, setForm] = useState(() => {
+    if (card) {
+      return {
+        ...card,
+        members: toArr(card.members),
+        mentions: toArr(card.mentions),
+        comments: toArr(card.comments),
+        checklist: toArr(card.checklist),
+      };
+    }
+    return {
+      title: "", type: taskTypes[0] || "Post", points: defP.points,
+      members: [], priority: defP.id, due: "", desc: "",
+      mentions: [], comments: [], checklist: []
+    };
   });
+
   const [mention, setMention] = useState("");
   const [comment, setComment] = useState("");
   const [checkText, setCheckText] = useState("");
@@ -352,7 +439,12 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
   const addComment = () => {
     if (!comment.trim()) return;
-    const c = { id: uid(), text: comment.trim(), author: currentUser?.name || "Anônimo", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) };
+    const c = {
+      id: uid(),
+      text: comment.trim(),
+      author: currentUser?.name || "Anônimo",
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    };
     setF("comments", [...form.comments, c]);
     setComment("");
     form.members.forEach(mid => {
@@ -363,30 +455,57 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
     });
   };
 
-  const addCheck = () => { if (!checkText.trim()) return; setF("checklist", [...form.checklist, { id: uid(), text: checkText.trim(), done: false }]); setCheckText(""); };
+  const addCheck = () => {
+    if (!checkText.trim()) return;
+    setF("checklist", [...form.checklist, { id: uid(), text: checkText.trim(), done: false }]);
+    setCheckText("");
+  };
   const toggleCheck = id => setF("checklist", form.checklist.map(c => c.id === id ? { ...c, done: !c.done } : c));
   const removeCheck = id => setF("checklist", form.checklist.filter(c => c.id !== id));
 
   const doneChecks = form.checklist.filter(c => c.done).length;
   const pri = getPriority(form.priority);
 
+  const handleSave = () => {
+    if (!form.title.trim()) return;
+    onSave(form, colId);
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "32px 16px" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ width: "100%", maxWidth: 680, ...s.card({ padding: 0, boxShadow: "0 24px 64px #000000cc", overflow: "hidden" }) }}>
+        {/* Header */}
         <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <input value={form.title} onChange={e => setF("title", e.target.value)} placeholder="Título do card..." style={s.input({ fontSize: 18, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1 })} />
+            <input
+              value={form.title}
+              onChange={e => setF("title", e.target.value)}
+              placeholder="Título do card..."
+              style={s.input({ fontSize: 18, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1 })}
+              autoFocus
+            />
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0 }}>×</button>
           </div>
         </div>
+
         <div style={{ display: "flex" }}>
           {/* LEFT */}
           <div style={{ flex: 1, padding: "20px 24px", borderRight: `1px solid ${T.border}` }}>
             <label style={s.label}>📝 Descrição</label>
-            <textarea value={form.desc} onChange={e => setF("desc", e.target.value)} placeholder="Descrição..." rows={3} style={s.input({ resize: "vertical", marginBottom: 20, fontFamily: "inherit", lineHeight: 1.5 })} />
+            <textarea
+              value={form.desc}
+              onChange={e => setF("desc", e.target.value)}
+              placeholder="Descrição..."
+              rows={3}
+              style={s.input({ resize: "vertical", marginBottom: 20, fontFamily: "inherit", lineHeight: 1.5 })}
+            />
 
             <label style={s.label}>☑️ Checklist {form.checklist.length > 0 && `(${doneChecks}/${form.checklist.length})`}</label>
-            {form.checklist.length > 0 && <div style={{ background: T.bg3, borderRadius: 6, height: 6, marginBottom: 10 }}><div style={{ background: T.green, borderRadius: 6, height: 6, width: `${(doneChecks / form.checklist.length) * 100}%`, transition: "width .3s" }} /></div>}
+            {form.checklist.length > 0 && (
+              <div style={{ background: T.bg3, borderRadius: 6, height: 6, marginBottom: 10 }}>
+                <div style={{ background: T.green, borderRadius: 6, height: 6, width: `${(doneChecks / form.checklist.length) * 100}%`, transition: "width .3s" }} />
+              </div>
+            )}
             {form.checklist.map(c => (
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                 <input type="checkbox" checked={c.done} onChange={() => toggleCheck(c.id)} style={{ accentColor: T.accent, width: 16, height: 16 }} />
@@ -416,8 +535,9 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               <button onClick={addComment} style={s.btn(T.accent)}>Enviar</button>
             </div>
           </div>
+
           {/* RIGHT */}
-          <div style={{ width: 210, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ width: 220, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ ...s.label, marginBottom: 0 }}>Tipo</label>
@@ -427,31 +547,37 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 {taskTypes.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
+
             <div>
               <label style={s.label}>Prioridade & Pontos</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {PRIORITIES.map(p => (
-                  <div key={p.id} onClick={() => handlePriorityChange(p.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${form.priority === p.id ? p.color : T.border}`, cursor: "pointer", background: form.priority === p.id ? p.color + "18" : "transparent", transition: "all .15s" }}>
+                  <div key={p.id} onClick={() => handlePriorityChange(p.id)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 8, border: `1.5px solid ${form.priority === p.id ? p.color : T.border}`, cursor: "pointer", background: form.priority === p.id ? p.color + "18" : "transparent", transition: "all .15s" }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: form.priority === p.id ? p.color : T.textSub }}>{p.label}</span>
                     <span style={{ fontSize: 11, fontWeight: 800, color: p.color }}>⭐{p.points}</span>
                   </div>
                 ))}
               </div>
             </div>
+
             <div>
               <label style={s.label}>Prazo</label>
               <input type="date" value={form.due} onChange={e => setF("due", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark" })} />
             </div>
+
             <div>
               <label style={s.label}>Integrantes</label>
               {members.map(m => (
-                <div key={m.id} onClick={() => toggleMember(m.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 8, cursor: "pointer", background: form.members.includes(m.id) ? T.accentDim : "transparent", marginBottom: 4, transition: "background .15s" }}>
+                <div key={m.id} onClick={() => toggleMember(m.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 8, cursor: "pointer", background: form.members.includes(m.id) ? T.accentDim : "transparent", marginBottom: 4, transition: "background .15s" }}>
                   <Avatar member={m} size={22} />
                   <span style={{ fontSize: 12, color: T.text }}>{m.name.split(" ")[0]}</span>
                   {form.members.includes(m.id) && <span style={{ marginLeft: "auto", color: T.accent, fontSize: 12 }}>✓</span>}
                 </div>
               ))}
             </div>
+
             <div>
               <label style={s.label}>Menções</label>
               <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
@@ -467,7 +593,10 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 ))}
               </div>
             </div>
-            <button onClick={() => onSave(form, colId)} style={s.btn(T.accent, { width: "100%", marginTop: "auto" })}>{isNew ? "Criar card" : "Salvar"}</button>
+
+            <button onClick={handleSave} style={s.btn(T.accent, { width: "100%", marginTop: "auto" })}>
+              {isNew ? "Criar card" : "Salvar"}
+            </button>
           </div>
         </div>
       </div>
@@ -482,8 +611,10 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
   const checklist = toArr(card.checklist);
   const done = checklist.filter(c => c.done).length;
   const pri = getPriority(card.priority);
+
   return (
-    <div draggable
+    <div
+      draggable
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
       style={{ background: T.bg3, borderRadius: 10, padding: "12px 14px", border: `1px solid ${drag ? T.accent : T.border}`, cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s" }}>
@@ -518,19 +649,31 @@ function ColumnModal({ col, onSave, onClose }) {
   const COL_COLORS = [T.textMuted, T.blue, T.amber, T.green, T.red, T.pink, T.teal, T.accent];
   const [title, setTitle] = useState(col?.title || "");
   const [color, setColor] = useState(col?.color || T.textMuted);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={s.card({ padding: 28, width: 360, boxShadow: "0 24px 64px #000000cc" })}>
-        <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{col ? "Editar coluna" : "Nova coluna"}</h3>
+        <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{col && col.id ? "Editar coluna" : "Nova coluna"}</h3>
         <label style={s.label}>Nome</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Em Revisão" style={{ ...s.input(), marginBottom: 14 }} autoFocus />
         <label style={s.label}>Cor</label>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-          {COL_COLORS.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />)}
+          {COL_COLORS.map(c => (
+            <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />
+          ))}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
-          <button onClick={() => { if (title.trim()) onSave({ ...(col || {}), title: title.trim(), color, id: col?.id || `col_${uid()}`, cards: col?.cards || [], order: col?.order ?? 999 }); }} style={s.btn(T.accent)}>Salvar</button>
+          <button onClick={() => {
+            if (!title.trim()) return;
+            onSave({
+              id: col?.id || `col_${uid()}`,
+              title: title.trim(),
+              color,
+              cards: col?.cards || [],
+              order: col?.order ?? 999
+            });
+          }} style={s.btn(T.accent)}>Salvar</button>
         </div>
       </div>
     </div>
@@ -539,8 +682,8 @@ function ColumnModal({ col, onSave, onClose }) {
 
 /* ─── BOARD TAB ──────────────────────────────────────────── */
 function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes }) {
-  const [modal, setModal] = useState(null);
-  const [colModal, setColModal] = useState(null);
+  const [modal, setModal] = useState(null);   // { card: Card|null, colId: string }
+  const [colModal, setColModal] = useState(null); // col object or {} for new
   const [typesModal, setTypesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
@@ -567,18 +710,19 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         return col;
       });
       updateColumns(newCols);
-    } catch { }
+    } catch (err) {
+      console.error("Drop error:", err);
+    }
   };
 
-  // ─── BUG FIX: handleSave agora funciona corretamente ─────
   const handleSave = (form, colId) => {
     const newCols = columns.map(col => {
       if (col.id !== colId) return col;
       if (form.id) {
-        // edição: substitui o card existente
-        return { ...col, cards: col.cards.map(c => c.id === form.id ? form : c) };
+        // Edit existing card
+        return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
       } else {
-        // criação: gera id novo e adiciona ao final
+        // Create new card
         const newCard = { ...form, id: uid() };
         toArr(newCard.members).forEach(mid => {
           if (mid !== currentUser?.id) {
@@ -594,13 +738,17 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   };
 
   const handleDelete = (cid, colId) => {
+    if (!window.confirm("Excluir este card?")) return;
     updateColumns(columns.map(col => col.id === colId ? { ...col, cards: col.cards.filter(c => c.id !== cid) } : col));
   };
 
   const handleSaveCol = colData => {
     const exists = columns.find(c => c.id === colData.id);
-    if (exists) updateColumns(columns.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
-    else updateColumns([...columns, { ...colData, cards: [] }]);
+    if (exists) {
+      updateColumns(columns.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
+    } else {
+      updateColumns([...columns, { ...colData, cards: [] }]);
+    }
     setColModal(null);
   };
 
@@ -617,41 +765,72 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   return (
     <div>
+      {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 220 })} />
         <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.input({ maxWidth: 180 })}>
           <option value="all">Todos os membros</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        <button onClick={() => setModal({ card: null, colId: sortedCols[0]?.id || "backlog" })} style={s.btn(T.accent, { marginLeft: "auto" })}>+ Novo Card</button>
+        <button
+          onClick={() => {
+            const firstColId = sortedCols[0]?.id;
+            if (!firstColId) { alert("Crie uma coluna primeiro."); return; }
+            setModal({ card: null, colId: firstColId });
+          }}
+          style={s.btn(T.accent, { marginLeft: "auto" })}>+ Novo Card</button>
         <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text })}>+ Nova Coluna</button>
       </div>
-      <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16 }}>
+
+      {/* Board */}
+      <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
         {sortedCols.map(col => (
-          <div key={col.id} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, col.id)}
-            style={{ minWidth: 272, maxWidth: 272, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 12 }}>
+          <div key={col.id}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => handleDrop(e, col.id)}
+            style={{ minWidth: 272, maxWidth: 272, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 12, flexShrink: 0 }}>
+            {/* Column header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color }} />
                 <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{col.title}</span>
-                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>{col.cards.filter(filterCard).length}</span>
+                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>
+                  {col.cards.filter(filterCard).length}
+                </span>
               </div>
               <div style={{ display: "flex", gap: 4 }}>
                 <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 13, padding: "2px 4px" }}>✏️</button>
                 <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 13, padding: "2px 4px" }}>🗑️</button>
-                <button onClick={() => setModal({ card: null, colId: col.id })} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+                <button
+                  onClick={() => setModal({ card: null, colId: col.id })}
+                  style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
               </div>
             </div>
+
+            {/* Cards */}
             {col.cards.filter(filterCard).map(card => (
-              <KanbanCard key={card.id} card={card} colId={col.id} members={members}
+              <KanbanCard
+                key={card.id}
+                card={card}
+                colId={col.id}
+                members={members}
                 onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                onDelete={handleDelete} />
+                onDelete={handleDelete}
+              />
             ))}
-            {col.cards.filter(filterCard).length === 0 && <div style={{ textAlign: "center", padding: "20px 0", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>}
+
+            {col.cards.filter(filterCard).length === 0 && (
+              <div style={{ textAlign: "center", padding: "20px 0", color: T.textMuted, fontSize: 12 }}>
+                Arraste um card aqui
+              </div>
+            )}
           </div>
         ))}
-        <div style={{ minWidth: 200, display: "flex", alignItems: "flex-start", paddingTop: 2 }}>
-          <button onClick={() => setColModal({})}
+
+        {/* Add column button */}
+        <div style={{ minWidth: 200, flexShrink: 0, paddingTop: 2 }}>
+          <button
+            onClick={() => setColModal({})}
             style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "14px 24px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}>
@@ -659,9 +838,35 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           </button>
         </div>
       </div>
-      {modal && <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser} taskTypes={taskTypes} onSave={handleSave} onClose={() => setModal(null)} onNotify={onNotify} onManageTypes={() => setTypesModal(true)} />}
-      {colModal !== null && <ColumnModal col={colModal && Object.keys(colModal).length ? colModal : null} onSave={handleSaveCol} onClose={() => setColModal(null)} />}
-      {typesModal && <ManageTypesModal types={taskTypes} onSave={list => { updateTaskTypes(list); setTypesModal(false); }} onClose={() => setTypesModal(false)} />}
+
+      {/* Modals */}
+      {modal && (
+        <CardModal
+          card={modal.card}
+          colId={modal.colId}
+          members={members}
+          currentUser={currentUser}
+          taskTypes={taskTypes}
+          onSave={handleSave}
+          onClose={() => setModal(null)}
+          onNotify={onNotify}
+          onManageTypes={() => setTypesModal(true)}
+        />
+      )}
+      {colModal !== null && (
+        <ColumnModal
+          col={colModal && Object.keys(colModal).length > 0 ? colModal : null}
+          onSave={handleSaveCol}
+          onClose={() => setColModal(null)}
+        />
+      )}
+      {typesModal && (
+        <ManageTypesModal
+          types={taskTypes}
+          onSave={list => { updateTaskTypes(list); setTypesModal(false); }}
+          onClose={() => setTypesModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -714,12 +919,13 @@ function UsersTab({ members, updateMembers, columns }) {
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => { setEditing(m.id); setForm({ ...m, newPassword: "" }); }} style={s.btn(T.bg4, { flex: 1, color: T.text })}>Editar</button>
-                <button onClick={() => updateMembers(members.filter(x => x.id !== m.id))} style={s.btn(T.redDim, { flex: 1, color: T.red })}>Remover</button>
+                <button onClick={() => { if (window.confirm(`Remover ${m.name}?`)) updateMembers(members.filter(x => x.id !== m.id)); }} style={s.btn(T.redDim, { flex: 1, color: T.red })}>Remover</button>
               </div>
             </div>
           );
         })}
       </div>
+
       {editing && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={e => e.target === e.currentTarget && setEditing(null)}>
           <div style={s.card({ padding: 28, width: 380, boxShadow: "0 24px 64px #000000cc" })}>
@@ -739,7 +945,10 @@ function UsersTab({ members, updateMembers, columns }) {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={() => setEditing(null)} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
               <button onClick={() => {
-                const pwdHash = form.newPassword ? hashPwd(form.newPassword) : (members.find(m => m.id === editing)?.passwordHash || hashPwd("1234"));
+                if (!form.name?.trim()) return;
+                const pwdHash = form.newPassword
+                  ? hashPwd(form.newPassword)
+                  : (members.find(m => m.id === editing)?.passwordHash || hashPwd("1234"));
                 const data = { ...form, avatar: initials(form.name || "?"), passwordHash: pwdHash };
                 delete data.newPassword;
                 if (editing === "new") updateMembers([...members, { ...data, id: uid() }]);
@@ -803,7 +1012,8 @@ function AnalyticsTab({ columns, members }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={s.card({ padding: 20 })}>
           <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: T.text }}>Tipos mais realizados</h3>
-          {topTypes.length === 0 ? <p style={{ color: T.textMuted, fontSize: 13 }}>Sem dados</p>
+          {topTypes.length === 0
+            ? <p style={{ color: T.textMuted, fontSize: 13 }}>Sem dados</p>
             : topTypes.map(([type, count]) => (
               <div key={type} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
@@ -892,12 +1102,12 @@ function SocialTab({ data, updateData }) {
     if (lines.length < 2) return [];
     const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
     const findCol = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-    const iTitle = findCol("título", "title", "nome", "name", "video");
-    const iViews = findCol("view", "visualiz", "impres");
-    const iLikes = findCol("like", "curtida");
-    const iComments = findCol("comment", "comentar");
-    const iShares = findCol("share", "compartilh");
-    const iDate = findCol("date", "data");
+    const iTitle = findCol("título","title","nome","name","video");
+    const iViews = findCol("view","visualiz","impres");
+    const iLikes = findCol("like","curtida");
+    const iComments = findCol("comment","comentar");
+    const iShares = findCol("share","compartilh");
+    const iDate = findCol("date","data");
     return lines.slice(1).map((line, idx) => {
       const cols = line.split(",").map(c => c.trim().replace(/"/g, ""));
       const num = i => i >= 0 ? (parseInt(cols[i]) || 0) : 0;
@@ -911,7 +1121,7 @@ function SocialTab({ data, updateData }) {
     reader.onload = ev => {
       const rows = parseCSV(ev.target.result, platform);
       if (rows.length) updateData({ ...data, [platform]: [...toArr(data[platform]), ...rows] });
-      else alert("Nenhum dado encontrado.");
+      else alert("Nenhum dado encontrado no CSV.");
     };
     reader.readAsText(file); e.target.value = "";
   };
@@ -926,7 +1136,7 @@ function SocialTab({ data, updateData }) {
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
         <div style={{ display: "flex", gap: 8 }}>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.input({ maxWidth: 150 })}>
-            {["views", "likes", "comments", "shares"].map(sv => <option key={sv} value={sv}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
+            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
           </select>
           <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Como exportar</button>
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
@@ -935,14 +1145,14 @@ function SocialTab({ data, updateData }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {["instagram", "tiktok", "youtube"].map(p => (
+        {["instagram","tiktok","youtube"].map(p => (
           <button key={p} onClick={() => setPlatform(p)} style={{ padding: "8px 20px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
             {PLATFORM_ICONS[p]} {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-        {[["👁️ Views", totals.views, "#fff"], ["❤️ Curtidas", totals.likes, pc], ["💬 Coments.", totals.comments, T.blue], ["📤 Compart.", totals.shares, T.green]].map(([l, v, c]) => (
+        {[["👁️ Views", totals.views, "#fff"],["❤️ Curtidas", totals.likes, pc],["💬 Coments.", totals.comments, T.blue],["📤 Compart.", totals.shares, T.green]].map(([l, v, c]) => (
           <div key={l} style={s.card({ padding: "14px 16px", textAlign: "center" })}>
             <p style={{ margin: "0 0 2px", fontSize: 24, fontWeight: 900, color: c }}>{fmtNum(v)}</p>
             <p style={{ margin: 0, fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{l}</p>
@@ -950,7 +1160,12 @@ function SocialTab({ data, updateData }) {
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {posts.length === 0 && <div style={s.card({ padding: 40, textAlign: "center" })}><p style={{ fontSize: 32, margin: "0 0 8px" }}>📂</p><p style={{ color: T.textMuted, fontSize: 14 }}>Importe um CSV para começar.</p></div>}
+        {posts.length === 0 && (
+          <div style={s.card({ padding: 40, textAlign: "center" })}>
+            <p style={{ fontSize: 32, margin: "0 0 8px" }}>📂</p>
+            <p style={{ color: T.textMuted, fontSize: 14 }}>Importe um CSV para começar.</p>
+          </div>
+        )}
         {posts.map((post, rank) => {
           const eng = post.likes + post.comments + post.shares;
           const engRate = post.views > 0 ? ((eng / post.views) * 100).toFixed(1) : "0.0";
@@ -972,7 +1187,7 @@ function SocialTab({ data, updateData }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 20, marginBottom: 10 }}>
-                  {[["❤️", post.likes, "Curtidas"], ["💬", post.comments, "Coments."], ["📤", post.shares, "Compart."]].map(([icon, val, label]) => (
+                  {[["❤️", post.likes,"Curtidas"],["💬", post.comments,"Coments."],["📤", post.shares,"Compart."]].map(([icon, val, label]) => (
                     <div key={label} style={{ textAlign: "center" }}>
                       <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: T.text }}>{fmtNum(val)}</p>
                       <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{icon} {label}</p>
@@ -1007,8 +1222,8 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const year = cur.getFullYear(), month = cur.getMonth();
   const first = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
-  const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
   const today = new Date();
   const isToday = d => today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
   const dateStr = d => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -1038,7 +1253,8 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             const dueCards = allCards.filter(c => c.due === dateStr(day));
             const isSel = sel === day;
             return (
-              <div key={day} onClick={() => setSel(day === sel ? null : day)} style={{ minHeight: 90, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "8px 6px", cursor: "pointer", background: isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, transition: "background .15s" }}>
+              <div key={day} onClick={() => setSel(day === sel ? null : day)}
+                style={{ minHeight: 90, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "8px 6px", cursor: "pointer", background: isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, transition: "background .15s" }}>
                 <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 12, marginBottom: 4 }}>{day}</div>
                 {evs.map(ev => <div key={ev.id} style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 4px 4px 0", padding: "1px 5px", marginBottom: 2, fontSize: 10, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</div>)}
                 {dueCards.map(c => <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 4px 4px 0", padding: "1px 5px", marginBottom: 2, fontSize: 10, fontWeight: 600, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⭐ {c.title}</div>)}
@@ -1076,7 +1292,9 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
               </div>
             </div>
           ))}
-          {eventsFor(sel).length === 0 && allCards.filter(c => c.due === dateStr(sel)).length === 0 && <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Nenhum evento</p>}
+          {eventsFor(sel).length === 0 && allCards.filter(c => c.due === dateStr(sel)).length === 0 && (
+            <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Nenhum evento</p>
+          )}
         </div>
       )}
       {addModal && (
@@ -1099,7 +1317,8 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
               <button onClick={() => {
                 if (!form.title.trim()) return;
                 updateEvents([...toArr(events), { id: uid(), date: addModal, title: form.title, type: form.type, memberId: form.memberId }]);
-                setAddModal(null); setForm({ title: "", type: taskTypes[0] || "Post", memberId: "" });
+                setAddModal(null);
+                setForm({ title: "", type: taskTypes[0] || "Post", memberId: "" });
               }} style={s.btn(T.accent)}>Salvar</button>
             </div>
           </div>
@@ -1119,32 +1338,41 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("board");
   const [notifs, setNotifs] = useState({});
+  const [dbReady, setDbReady] = useState(false);
 
-  // auto-login
+  // Auto-login when members load
   useEffect(() => {
+    if (!dbReady || currentUser) return;
     const savedId = localStorage.getItem(REMEMBER_KEY);
-    if (savedId && members.length > 0 && !currentUser) {
-      const found = members.find(m => String(m.id) === savedId);
+    if (savedId && members.length > 0) {
+      const found = members.find(m => String(m.id) === String(savedId));
       if (found) setCurrentUser(found);
     }
-  }, [members]);
+  }, [members, dbReady]);
 
   useEffect(() => {
-    // inicializa dados se banco estiver vazio
+    // Initialize DB if empty
     onValue(ref(db, '/'), snap => {
       if (!snap.exists()) {
-        set(ref(db, '/'), { members: INIT_MEMBERS, columns: INIT_COLUMNS, events: INIT_EVENTS, social: INIT_SOCIAL, taskTypes: DEFAULT_TASK_TYPES });
+        set(ref(db, '/'), {
+          members: INIT_MEMBERS,
+          columns: INIT_COLUMNS,
+          events: INIT_EVENTS,
+          social: INIT_SOCIAL,
+          taskTypes: DEFAULT_TASK_TYPES
+        });
       }
+      setDbReady(true);
     }, { onlyOnce: true });
 
-    const unsub = [
+    const unsubs = [
       onValue(ref(db, 'members'),   snap => setMembers(toArr(snap.val()))),
       onValue(ref(db, 'columns'),   snap => setColumns(normalizeCols(snap.val()))),
       onValue(ref(db, 'events'),    snap => setEvents(toArr(snap.val()))),
       onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {})),
       onValue(ref(db, 'taskTypes'), snap => { if (snap.val()) setTaskTypes(toArr(snap.val())); }),
     ];
-    return () => unsub.forEach(u => u());
+    return () => unsubs.forEach(u => u());
   }, []);
 
   const updateMembers   = v => set(ref(db, 'members'), v);
@@ -1153,9 +1381,9 @@ export default function App() {
   const updateSocial    = v => set(ref(db, 'social'), v);
   const updateTaskTypes = v => set(ref(db, 'taskTypes'), v);
 
-  const onLogin    = member => setCurrentUser(member);
+  const onLogin = member => setCurrentUser(member);
   const onRegister = member => updateMembers([...members, member]);
-  const onLogout   = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
+  const onLogout = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
 
   const onNotify = useCallback((memberId, text) => {
     const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
@@ -1166,20 +1394,22 @@ export default function App() {
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
-    { id: "board",     label: "Board",       icon: "📋" },
-    { id: "users",     label: "Usuários",    icon: "👥" },
-    { id: "analytics", label: "Análise",     icon: "📊" },
-    { id: "social",    label: "Social Media",icon: "📱" },
-    { id: "calendar",  label: "Calendário",  icon: "📅" },
+    { id: "board",     label: "Board",        icon: "📋" },
+    { id: "users",     label: "Usuários",     icon: "👥" },
+    { id: "analytics", label: "Análise",      icon: "📊" },
+    { id: "social",    label: "Social Media", icon: "📱" },
+    { id: "calendar",  label: "Calendário",   icon: "📅" },
   ];
 
-  if (!currentUser) return <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />;
+  if (!currentUser) {
+    return <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />;
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
-      {/* HEADER — sem maxWidth no próprio header, só no conteúdo interno */}
-      <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, padding: "0 24px", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto" }}>
+      {/* HEADER */}
+      <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>SM</div>
             <span style={{ fontWeight: 900, fontSize: 18, color: T.text, letterSpacing: -0.5 }}>Sistema Marketing</span>
@@ -1205,8 +1435,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* CONTEÚDO — padding lateral, sem borda branca */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 24px" }}>
+      {/* CONTENT — sem borda branca, padding apenas lateral */}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 24px 48px" }}>
         {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
         {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
         {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
