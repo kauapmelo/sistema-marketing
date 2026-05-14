@@ -41,6 +41,14 @@ const GLOBAL_STYLE = `
     40%  { transform: scale(1.06); }
     100% { transform: scale(1); }
   }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 
   @media (max-width: 600px) {
     .nav-label { display: none; }
@@ -88,6 +96,8 @@ const fmtDate = d => d ? d.slice(5).replace("-", "/") : "";
 const fmtNum = n => n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
 const hashPwd = (pwd) => btoa(encodeURIComponent(pwd));
 const REMEMBER_KEY = "mkt_remember_user";
+const MY_CARDS_KEY = "mkt_my_cards_mode";
+const ONLINE_KEY = "mkt_online_";
 
 const toArr = (val) => {
   if (!val) return [];
@@ -190,24 +200,71 @@ function GlobalStyles() {
   return <style>{GLOBAL_STYLE}</style>;
 }
 
+/* ─── ONLINE PRESENCE ────────────────────────────────────── */
+function useOnlinePresence(userId) {
+  useEffect(() => {
+    if (!userId) return;
+    const key = ONLINE_KEY + userId;
+    localStorage.setItem(key, Date.now());
+    const interval = setInterval(() => localStorage.setItem(key, Date.now()), 15000);
+    return () => {
+      clearInterval(interval);
+      localStorage.removeItem(key);
+    };
+  }, [userId]);
+}
+
+function isOnline(userId) {
+  const ts = localStorage.getItem(ONLINE_KEY + userId);
+  if (!ts) return false;
+  return Date.now() - parseInt(ts) < 30000;
+}
+
 /* ─── AVATAR ─────────────────────────────────────────────── */
-function Avatar({ member, size = 28, style = {} }) {
-  if (member.photo) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", ...style }}>
-        <img src={member.photo} alt={member.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
-  return (
-    <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", ...style }}>
+function Avatar({ member, size = 28, style = {}, showOnline = false }) {
+  const online = showOnline ? isOnline(member.id) : false;
+  const content = member.photo ? (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
+      <img src={member.photo} alt={member.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      {showOnline && (
+        <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />
+      )}
+    </div>
+  ) : (
+    <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
       {member.avatar || initials(member.name)}
+      {showOnline && (
+        <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />
+      )}
     </div>
   );
+  return content;
 }
 
 function Pill({ label, color }) {
   return <span style={s.badge(color)}>{label}</span>;
+}
+
+/* ─── SPARKLINE ──────────────────────────────────────────── */
+function Sparkline({ data, color = T.accent, width = 80, height = 28 }) {
+  if (!data || data.length < 2) return <span style={{ fontSize: 11, color: T.textMuted }}>—</span>;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - (v / max) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={width} height={height} style={{ display: "block" }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {data.map((v, i) => {
+        if (i !== data.length - 1) return null;
+        const x = (i / (data.length - 1)) * width;
+        const y = height - (v / max) * (height - 4) - 2;
+        return <circle key={i} cx={x} cy={y} r={3} fill={color} />;
+      })}
+    </svg>
+  );
 }
 
 /* ─── TOAST ──────────────────────────────────────────────── */
@@ -310,25 +367,19 @@ function PhotoCropModal({ imageSrc, onConfirm, onClose }) {
     const ctx = canvas.getContext("2d");
     const img = imgRef.current;
     if (!img.complete || !img.naturalWidth) return;
-
     ctx.clearRect(0, 0, SIZE, SIZE);
-
-    // Draw image
     const baseScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight);
     const s2 = baseScale * scale;
     const w = img.naturalWidth * s2;
     const h = img.naturalHeight * s2;
     const x = (SIZE - w) / 2 + offset.x;
     const y = (SIZE - h) / 2 + offset.y;
-
     ctx.save();
     ctx.beginPath();
     ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
     ctx.clip();
     ctx.drawImage(img, x, y, w, h);
     ctx.restore();
-
-    // Overlay ring
     ctx.strokeStyle = "#7c6af7";
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -338,26 +389,22 @@ function PhotoCropModal({ imageSrc, onConfirm, onClose }) {
 
   const onMouseDown = (e) => {
     setDragging(true);
-    const rect = canvasRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setDragStart({ x: clientX - offset.x, y: clientY - offset.y });
   };
-
   const onMouseMove = (e) => {
     if (!dragging) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setOffset({ x: clientX - dragStart.x, y: clientY - dragStart.y });
   };
-
   const onMouseUp = () => setDragging(false);
 
   const handleConfirm = () => {
     const canvas = canvasRef.current;
     const out = document.createElement("canvas");
-    out.width = 200;
-    out.height = 200;
+    out.width = 200; out.height = 200;
     const ctx = out.getContext("2d");
     ctx.drawImage(canvas, 0, 0, SIZE, SIZE, 0, 0, 200, 200);
     onConfirm(out.toDataURL("image/jpeg", 0.85));
@@ -368,39 +415,19 @@ function PhotoCropModal({ imageSrc, onConfirm, onClose }) {
       <div style={s.card({ padding: 28, maxWidth: 360, width: "100%", boxShadow: "0 24px 64px #000000cc", textAlign: "center" })}>
         <h3 style={{ margin: "0 0 6px", fontWeight: 800, color: T.text, fontSize: 17 }}>Ajustar foto</h3>
         <p style={{ margin: "0 0 20px", color: T.textMuted, fontSize: 13 }}>Arraste para posicionar · Zoom para aproximar</p>
-
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-          <canvas
-            ref={canvasRef}
-            width={SIZE}
-            height={SIZE}
+          <canvas ref={canvasRef} width={SIZE} height={SIZE}
             style={{ borderRadius: "50%", cursor: dragging ? "grabbing" : "grab", userSelect: "none", touchAction: "none", border: `3px solid ${T.accent}` }}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
-            onTouchStart={onMouseDown}
-            onTouchMove={onMouseMove}
-            onTouchEnd={onMouseUp}
-          />
+            onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+            onTouchStart={onMouseDown} onTouchMove={onMouseMove} onTouchEnd={onMouseUp} />
         </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <label style={{ ...s.label, marginBottom: 0 }}>🔍 Zoom</label>
             <span style={{ fontSize: 12, color: T.textSub }}>{Math.round(scale * 100)}%</span>
           </div>
-          <input
-            type="range"
-            min="0.5"
-            max="3"
-            step="0.05"
-            value={scale}
-            onChange={e => setScale(parseFloat(e.target.value))}
-            style={{ width: "100%", accentColor: T.accent, cursor: "pointer" }}
-          />
+          <input type="range" min="0.5" max="3" step="0.05" value={scale} onChange={e => setScale(parseFloat(e.target.value))} style={{ width: "100%", accentColor: T.accent, cursor: "pointer" }} />
         </div>
-
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onClose} style={s.btn(T.bg4, { flex: 1, color: T.text })}>Cancelar</button>
           <button onClick={handleConfirm} style={s.btn(T.accent, { flex: 1 })}>Usar foto ✓</button>
@@ -414,7 +441,6 @@ function PhotoCropModal({ imageSrc, onConfirm, onClose }) {
 function PhotoUploader({ currentPhoto, color, name, onUpload }) {
   const inputRef = useRef();
   const [cropSrc, setCropSrc] = useState(null);
-
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -424,46 +450,27 @@ function PhotoUploader({ currentPhoto, color, name, onUpload }) {
     reader.readAsDataURL(file);
     e.target.value = "";
   };
-
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-        <div
-          onClick={() => inputRef.current.click()}
-          style={{ width: 90, height: 90, borderRadius: "50%", overflow: "hidden", cursor: "pointer", position: "relative", border: `3px solid ${T.accent}`, flexShrink: 0 }}
-        >
+        <div onClick={() => inputRef.current.click()} style={{ width: 90, height: 90, borderRadius: "50%", overflow: "hidden", cursor: "pointer", position: "relative", border: `3px solid ${T.accent}`, flexShrink: 0 }}>
           {currentPhoto
             ? <img src={currentPhoto} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#fff" }}>{initials(name || "?")}</div>
           }
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .2s" }}
-            onMouseEnter={e => e.currentTarget.style.opacity = 1}
-            onMouseLeave={e => e.currentTarget.style.opacity = 0}
-          >
+            onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
             <span style={{ fontSize: 22 }}>📷</span>
             <span style={{ fontSize: 10, color: "#fff", fontWeight: 700, marginTop: 2 }}>Alterar</span>
           </div>
         </div>
         <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
         <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" onClick={() => inputRef.current.click()} style={s.btn(T.bg4, { color: T.text, fontSize: 11, padding: "5px 12px" })}>
-            {currentPhoto ? "Trocar foto" : "Adicionar foto"}
-          </button>
-          {currentPhoto && (
-            <button type="button" onClick={() => onUpload(null)} style={s.btn(T.redDim, { color: T.red, fontSize: 11, padding: "5px 12px" })}>
-              Remover
-            </button>
-          )}
+          <button type="button" onClick={() => inputRef.current.click()} style={s.btn(T.bg4, { color: T.text, fontSize: 11, padding: "5px 12px" })}>{currentPhoto ? "Trocar foto" : "Adicionar foto"}</button>
+          {currentPhoto && <button type="button" onClick={() => onUpload(null)} style={s.btn(T.redDim, { color: T.red, fontSize: 11, padding: "5px 12px" })}>Remover</button>}
         </div>
       </div>
-
-      {cropSrc && (
-        <PhotoCropModal
-          imageSrc={cropSrc}
-          onConfirm={data => { onUpload(data); setCropSrc(null); }}
-          onClose={() => setCropSrc(null)}
-        />
-      )}
+      {cropSrc && <PhotoCropModal imageSrc={cropSrc} onConfirm={data => { onUpload(data); setCropSrc(null); }} onClose={() => setCropSrc(null)} />}
     </>
   );
 }
@@ -487,9 +494,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
     setError("");
     const member = members.find(m => m.id === selId);
     if (!member) { setError("Selecione um perfil."); return; }
-    if (member.passwordHash && hashPwd(password) !== member.passwordHash) {
-      setError("Senha incorreta."); return;
-    }
+    if (member.passwordHash && hashPwd(password) !== member.passwordHash) { setError("Senha incorreta."); return; }
     if (remember) localStorage.setItem(REMEMBER_KEY, String(member.id));
     else localStorage.removeItem(REMEMBER_KEY);
     onLogin(member);
@@ -498,14 +503,9 @@ function LoginScreen({ members, onLogin, onRegister }) {
   const handleRegister = () => {
     if (!name.trim()) { setError("Digite seu nome."); return; }
     if (!newPassword.trim()) { setError("Defina uma senha."); return; }
-    const newMember = {
-      id: uid(), name: name.trim(), avatar: initials(name.trim()),
-      color, photo: photo || null, role: role.trim() || "Membro",
-      passwordHash: hashPwd(newPassword)
-    };
+    const newMember = { id: uid(), name: name.trim(), avatar: initials(name.trim()), color, photo: photo || null, role: role.trim() || "Membro", passwordHash: hashPwd(newPassword) };
     onRegister(newMember);
-    setMode("login");
-    setName(""); setNewPassword(""); setPhoto(null); setError("");
+    setMode("login"); setName(""); setNewPassword(""); setPhoto(null); setError("");
   };
 
   return (
@@ -516,7 +516,6 @@ function LoginScreen({ members, onLogin, onRegister }) {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Sistema Marketing</h1>
           <p style={{ margin: "6px 0 0", color: T.textSub, fontSize: 13 }}>Plataforma de gestão de conteúdo</p>
         </div>
-
         <div style={{ display: "flex", background: T.bg3, borderRadius: 10, padding: 4, marginBottom: 20, gap: 4 }}>
           {["login", "register"].map(m => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: mode === m ? T.accent : "transparent", color: mode === m ? "#fff" : T.textMuted, transition: "all .2s" }}>
@@ -524,11 +523,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
             </button>
           ))}
         </div>
-
-        {error && (
-          <div style={{ background: T.redDim, border: `1px solid ${T.red}33`, borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 13, color: T.red }}>{error}</div>
-        )}
-
+        {error && <div style={{ background: T.redDim, border: `1px solid ${T.red}33`, borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 13, color: T.red }}>{error}</div>}
         {mode === "login" ? (
           <div>
             <label style={s.label}>Selecione seu perfil</label>
@@ -537,7 +532,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
               {members.map(m => (
                 <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }}
                   style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selId === m.id ? T.accent : T.border}`, cursor: "pointer", background: selId === m.id ? T.accentDim : T.bg3, transition: "all .15s" }}>
-                  <Avatar member={m} size={36} />
+                  <Avatar member={m} size={36} showOnline />
                   <div>
                     <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
                     <p style={{ margin: 0, fontSize: 12, color: T.textMuted }}>{m.role}</p>
@@ -546,7 +541,6 @@ function LoginScreen({ members, onLogin, onRegister }) {
                 </div>
               ))}
             </div>
-
             {selId && (
               <div style={{ marginBottom: 14 }}>
                 <label style={s.label}>Senha</label>
@@ -556,12 +550,10 @@ function LoginScreen({ members, onLogin, onRegister }) {
                 </div>
               </div>
             )}
-
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
               <input type="checkbox" id="remember" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ accentColor: T.accent, width: 15, height: 15, cursor: "pointer" }} />
               <label htmlFor="remember" style={{ fontSize: 13, color: T.textSub, cursor: "pointer" }}>Lembrar neste dispositivo</label>
             </div>
-
             <button onClick={handleLogin} disabled={!selId} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15, opacity: selId ? 1 : .4 })}>Entrar</button>
           </div>
         ) : (
@@ -570,26 +562,19 @@ function LoginScreen({ members, onLogin, onRegister }) {
               <label style={s.label}>Foto de perfil (opcional)</label>
               <PhotoUploader currentPhoto={photo} color={color} name={name} onUpload={setPhoto} />
             </div>
-
             <label style={s.label}>Nome completo</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Maria Souza" style={{ ...s.input(), marginBottom: 14 }} />
-
             <label style={s.label}>Cargo / Função</label>
             <input value={role} onChange={e => setRole(e.target.value)} placeholder="Ex: Designer" style={{ ...s.input(), marginBottom: 14 }} />
-
             <label style={s.label}>Senha</label>
             <div style={{ position: "relative", marginBottom: 14 }}>
               <input type={showNewPwd ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Crie uma senha" style={{ ...s.input(), paddingRight: 40 }} />
               <button onClick={() => setShowNewPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>{showNewPwd ? "🙈" : "👁️"}</button>
             </div>
-
             <label style={s.label}>Cor do perfil</label>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-              {MEMBER_COLORS.map(c => (
-                <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />
-              ))}
+              {MEMBER_COLORS.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />)}
             </div>
-
             <button onClick={handleRegister} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15 })}>Criar conta</button>
           </div>
         )}
@@ -602,10 +587,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
 function ManageTypesModal({ types, onSave, onClose }) {
   const [list, setList] = useState([...types]);
   const [newType, setNewType] = useState("");
-  const add = () => {
-    const t = newType.trim();
-    if (t && !list.includes(t)) { setList([...list, t]); setNewType(""); }
-  };
+  const add = () => { const t = newType.trim(); if (t && !list.includes(t)) { setList([...list, t]); setNewType(""); } };
   const remove = t => setList(list.filter(x => x !== t));
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -639,33 +621,16 @@ function ManageTypesModal({ types, onSave, onClose }) {
 function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClose, onNotify, onManageTypes }) {
   const isNew = !card?.id;
   const defP = PRIORITIES[0];
-
   const [form, setForm] = useState(() => {
-    if (card) {
-      return {
-        ...card,
-        members: toArr(card.members),
-        mentions: toArr(card.mentions),
-        comments: toArr(card.comments),
-        checklist: toArr(card.checklist),
-      };
-    }
+    if (card) return { ...card, members: toArr(card.members), mentions: toArr(card.mentions), comments: toArr(card.comments), checklist: toArr(card.checklist) };
     return { title: "", type: taskTypes[0] || "Post", points: defP.points, members: [], priority: defP.id, due: "", desc: "", mentions: [], comments: [], checklist: [], completed: false };
   });
-
   const [mention, setMention] = useState("");
   const [comment, setComment] = useState("");
   const [checkText, setCheckText] = useState("");
-
   const setF = (key, val) => setForm(f => ({ ...f, [key]: val }));
-
-  const handlePriorityChange = pid => {
-    const p = getPriority(pid);
-    setForm(f => ({ ...f, priority: pid, points: p.points }));
-  };
-
+  const handlePriorityChange = pid => { const p = getPriority(pid); setForm(f => ({ ...f, priority: pid, points: p.points })); };
   const toggleMember = id => setF("members", form.members.includes(id) ? form.members.filter(x => x !== id) : [...form.members, id]);
-
   const addMention = () => {
     const m = mention.trim(); if (!m) return;
     const tag = m.startsWith("@") ? m : "@" + m;
@@ -674,33 +639,20 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
     if (mb && mb.id !== currentUser?.id) onNotify(mb.id, `Você foi mencionado em "${form.title || "card"}" por ${currentUser?.name}`);
     setMention("");
   };
-
   const addComment = () => {
     if (!comment.trim()) return;
     const c = { id: uid(), text: comment.trim(), author: currentUser?.name || "Anônimo", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) };
     setF("comments", [...form.comments, c]);
     setComment("");
     form.members.forEach(mid => {
-      if (mid !== currentUser?.id) {
-        const mb = members.find(m => m.id === mid);
-        if (mb) onNotify(mb.id, `${currentUser?.name} comentou em "${form.title}"`);
-      }
+      if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `${currentUser?.name} comentou em "${form.title}"`); }
     });
   };
-
-  const addCheck = () => {
-    if (!checkText.trim()) return;
-    setF("checklist", [...form.checklist, { id: uid(), text: checkText.trim(), done: false }]);
-    setCheckText("");
-  };
+  const addCheck = () => { if (!checkText.trim()) return; setF("checklist", [...form.checklist, { id: uid(), text: checkText.trim(), done: false }]); setCheckText(""); };
   const toggleCheck = id => setF("checklist", form.checklist.map(c => c.id === id ? { ...c, done: !c.done } : c));
   const removeCheck = id => setF("checklist", form.checklist.filter(c => c.id !== id));
   const doneChecks = form.checklist.filter(c => c.done).length;
-
-  const handleSave = () => {
-    if (!form.title.trim()) return;
-    onSave(form, colId);
-  };
+  const handleSave = () => { if (!form.title.trim()) return; onSave(form, colId); };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "16px" }} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -711,18 +663,12 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0, flexShrink: 0 }}>×</button>
           </div>
         </div>
-
         <div className="card-modal-body" style={{ display: "flex", flexDirection: "row" }}>
           <div style={{ flex: 1, padding: "16px 20px", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
             <label style={s.label}>📝 Descrição</label>
             <textarea value={form.desc} onChange={e => setF("desc", e.target.value)} placeholder="Descrição..." rows={3} style={{ ...s.input({ resize: "vertical", marginBottom: 16, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }} />
-
             <label style={s.label}>☑️ Checklist {form.checklist.length > 0 && `(${doneChecks}/${form.checklist.length})`}</label>
-            {form.checklist.length > 0 && (
-              <div style={{ background: T.bg3, borderRadius: 6, height: 6, marginBottom: 10 }}>
-                <div style={{ background: T.green, borderRadius: 6, height: 6, width: `${(doneChecks / form.checklist.length) * 100}%`, transition: "width .3s" }} />
-              </div>
-            )}
+            {form.checklist.length > 0 && <div style={{ background: T.bg3, borderRadius: 6, height: 6, marginBottom: 10 }}><div style={{ background: T.green, borderRadius: 6, height: 6, width: `${(doneChecks / form.checklist.length) * 100}%`, transition: "width .3s" }} /></div>}
             {form.checklist.map(c => (
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
                 <input type="checkbox" checked={c.done} onChange={() => toggleCheck(c.id)} style={{ accentColor: T.accent, width: 16, height: 16 }} />
@@ -734,7 +680,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               <input value={checkText} onChange={e => setCheckText(e.target.value)} onKeyDown={e => e.key === "Enter" && addCheck()} placeholder="Novo item..." style={s.input({ flex: 1, width: "auto" })} />
               <button onClick={addCheck} style={s.btn(T.bg4, { color: T.text })}>+</button>
             </div>
-
             <label style={s.label}>💬 Comentários</label>
             <div style={{ marginBottom: 12 }}>
               {form.comments.map(c => (
@@ -752,7 +697,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               <button onClick={addComment} style={s.btn(T.accent)}>Enviar</button>
             </div>
           </div>
-
           <div className="card-modal-right" style={{ width: 200, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, background: T.bg2, flexShrink: 0 }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -763,7 +707,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 {taskTypes.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
-
             <div>
               <label style={s.label}>Prioridade & Pontos</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -776,24 +719,21 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 ))}
               </div>
             </div>
-
             <div>
               <label style={s.label}>Prazo</label>
               <input type="date" value={form.due} onChange={e => setF("due", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark", width: "100%" })} />
             </div>
-
             <div>
               <label style={s.label}>Integrantes</label>
               {members.map(m => (
                 <div key={m.id} onClick={() => toggleMember(m.id)}
                   style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 8, cursor: "pointer", background: form.members.includes(m.id) ? T.accentDim : "transparent", marginBottom: 4, transition: "background .15s" }}>
-                  <Avatar member={m} size={22} />
+                  <Avatar member={m} size={22} showOnline />
                   <span style={{ fontSize: 12, color: T.text }}>{m.name.split(" ")[0]}</span>
                   {form.members.includes(m.id) && <span style={{ marginLeft: "auto", color: T.accent, fontSize: 12 }}>✓</span>}
                 </div>
               ))}
             </div>
-
             <div>
               <label style={s.label}>Menções</label>
               <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
@@ -809,10 +749,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 ))}
               </div>
             </div>
-
-            <button onClick={handleSave} style={s.btn(T.accent, { width: "100%", marginTop: "auto" })}>
-              {isNew ? "Criar card" : "Salvar"}
-            </button>
+            <button onClick={handleSave} style={s.btn(T.accent, { width: "100%", marginTop: "auto" })}>{isNew ? "Criar card" : "Salvar"}</button>
           </div>
         </div>
       </div>
@@ -821,7 +758,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────── */
-function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
+function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, isFirst, isLast }) {
   const [drag, setDrag] = useState(false);
   const [completing, setCompleting] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
@@ -836,10 +773,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
     e.stopPropagation();
     if (completing || isCompleted) return;
     setCompleting(true);
-    setTimeout(() => {
-      onComplete(card, colId);
-      setCompleting(false);
-    }, 320);
+    setTimeout(() => { onComplete(card, colId); setCompleting(false); }, 320);
   };
 
   return (
@@ -848,61 +782,37 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
       style={{
-        background: isCompleted ? "#22c55e08" : T.bg3,
-        borderRadius: 10,
-        padding: "12px 12px",
-        border: `1.5px solid ${
-          completing  ? T.green :
-          isCompleted ? T.green :
-          drag        ? T.accent :
-          isOverdue   ? T.red + "77" :
-          T.border
-        }`,
-        cursor: "grab",
-        opacity: drag ? .5 : 1,
-        marginBottom: 8,
+        background: isCompleted ? "#22c55e08" : T.bg3, borderRadius: 10, padding: "12px 12px",
+        border: `1.5px solid ${completing ? T.green : isCompleted ? T.green : drag ? T.accent : isOverdue ? T.red + "77" : T.border}`,
+        cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8,
         transition: "border .3s, background .3s",
         animation: completing ? "completePop .32s ease" : "none",
-        position: "relative",
-        overflow: "hidden",
+        position: "relative", overflow: "hidden",
       }}>
-
-      {/* Faixa verde no topo quando concluído */}
-      {isCompleted && (
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />
-      )}
+      {isCompleted && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>
-          {card.title}
-        </span>
+        <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          <button
-            title={isCompleted ? "Já concluído" : "Marcar como concluído"}
-            onClick={handleComplete}
-            disabled={completing || isCompleted}
-            style={{
-              background: isCompleted ? T.green + "33" : completing ? T.green + "40" : T.green + "18",
-              border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`,
-              borderRadius: 6, cursor: isCompleted ? "default" : "pointer",
-              color: T.green, fontSize: 12, padding: "2px 5px",
-              fontFamily: "inherit", fontWeight: 700, lineHeight: 1.4, transition: "background .15s",
-            }}
-          >✅</button>
+          {/* Move up/down buttons */}
+          <button title="Mover para cima" onClick={e => { e.stopPropagation(); onMoveUp(card.id, colId); }} disabled={isFirst}
+            style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", color: isFirst ? T.textMuted + "44" : T.textMuted, fontSize: 11, padding: "0 1px", lineHeight: 1 }}>▲</button>
+          <button title="Mover para baixo" onClick={e => { e.stopPropagation(); onMoveDown(card.id, colId); }} disabled={isLast}
+            style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", color: isLast ? T.textMuted + "44" : T.textMuted, fontSize: 11, padding: "0 1px", lineHeight: 1 }}>▼</button>
+          <button title={isCompleted ? "Já concluído" : "Marcar como concluído"} onClick={handleComplete} disabled={completing || isCompleted}
+            style={{ background: isCompleted ? T.green + "33" : completing ? T.green + "40" : T.green + "18", border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`, borderRadius: 6, cursor: isCompleted ? "default" : "pointer", color: T.green, fontSize: 12, padding: "2px 5px", fontFamily: "inherit", fontWeight: 700, lineHeight: 1.4, transition: "background .15s" }}>✅</button>
           <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
           <button onClick={() => onDelete(card.id, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>🗑️</button>
         </div>
       </div>
-
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         <Pill label={card.type} color={T.accent} />
         <Pill label={pri.label} color={pri.color} />
         {isCompleted && <Pill label="✅ Concluído" color={T.green} />}
       </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex" }}>
-          {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} /></div>)}
+          {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} showOnline /></div>)}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {checklist.length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
@@ -928,30 +838,74 @@ function ColumnModal({ col, onSave, onClose }) {
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Em Revisão" style={{ ...s.input(), marginBottom: 14 }} autoFocus />
         <label style={s.label}>Cor</label>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-          {COL_COLORS.map(c => (
-            <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />
-          ))}
+          {COL_COLORS.map(c => <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: color === c ? `3px solid ${T.text}` : "3px solid transparent", transition: "border .15s" }} />)}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
-          <button onClick={() => {
-            if (!title.trim()) return;
-            onSave({ id: col?.id || `col_${uid()}`, title: title.trim(), color, cards: col?.cards || [], order: col?.order ?? 999 });
-          }} style={s.btn(T.accent)}>Salvar</button>
+          <button onClick={() => { if (!title.trim()) return; onSave({ id: col?.id || `col_${uid()}`, title: title.trim(), color, cards: col?.cards || [], order: col?.order ?? 999 }); }} style={s.btn(T.accent)}>Salvar</button>
         </div>
       </div>
     </div>
   );
 }
 
+/* ─── QUICK ADD INLINE ───────────────────────────────────── */
+function QuickAdd({ colId, taskTypes, currentUser, onAdd }) {
+  const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef();
+
+  const handleAdd = () => {
+    if (!text.trim()) return;
+    const pri = PRIORITIES[0];
+    const newCard = {
+      id: uid(), title: text.trim(), type: taskTypes[0] || "Post",
+      points: pri.points, members: currentUser ? [currentUser.id] : [],
+      priority: pri.id, due: "", desc: "", mentions: [], comments: [], checklist: [], completed: false
+    };
+    onAdd(newCard, colId);
+    setText("");
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+        style={{ width: "100%", background: "transparent", border: `1.5px dashed ${T.border}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", color: T.textMuted, fontSize: 12, fontFamily: "inherit", fontWeight: 600, textAlign: "left", transition: "all .15s", display: "flex", alignItems: "center", gap: 6 }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}>
+        <span style={{ fontSize: 14 }}>+</span> Adicionar card rápido
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ background: T.bg3, borderRadius: 8, border: `1.5px solid ${T.accent}`, padding: "8px" }}>
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setOpen(false); }}
+        placeholder="Título do card... (Enter para criar)"
+        style={s.input({ fontSize: 13, background: T.bg2, marginBottom: 8 })}
+      />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={handleAdd} style={s.btn(T.accent, { flex: 1, fontSize: 12, padding: "5px 0" })}>Criar</button>
+        <button onClick={() => setOpen(false)} style={s.btn(T.bg4, { color: T.text, fontSize: 12, padding: "5px 10px" })}>✕</button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── BOARD TAB ──────────────────────────────────────────── */
-function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes }) {
+function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode }) {
   const [modal, setModal] = useState(null);
   const [colModal, setColModal] = useState(null);
   const [typesModal, setTypesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
+  const [colSortMap, setColSortMap] = useState({});
 
   const addToast = useCallback((title, points) => {
     const id = uid();
@@ -961,29 +915,71 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  /* ── handleComplete: marca concluído na mesma coluna ── */
+  // Effective filter: myCardsMode overrides filterMember
+  const effectiveFilter = myCardsMode ? currentUser?.id : filterMember;
+
+  const filterCard = card => {
+    if (search && !card.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (effectiveFilter && effectiveFilter !== "all" && !toArr(card.members).includes(effectiveFilter)) return false;
+    return true;
+  };
+
+  // Sort cards in a column based on colSortMap
+  const getSortedCards = (col) => {
+    const sortBy = colSortMap[col.id];
+    const cards = [...col.cards];
+    if (!sortBy || sortBy === "manual") return cards;
+    if (sortBy === "due") return cards.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : 1);
+    if (sortBy === "points") return cards.sort((a, b) => (b.points || 0) - (a.points || 0));
+    if (sortBy === "priority") {
+      const order = { complexo: 0, dificil: 1, medio: 2, facil: 3 };
+      return cards.sort((a, b) => (order[a.priority] ?? 4) - (order[b.priority] ?? 4));
+    }
+    return cards;
+  };
+
+  // Hide columns that have 0 visible cards when filter is active
+  const visibleCols = (effectiveFilter && effectiveFilter !== "all") || search
+    ? sortedCols.filter(col => col.cards.some(filterCard))
+    : sortedCols;
+
+  const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
+
+  // Move card up/down within its column
+  const handleMoveUp = useCallback((cardId, colId) => {
+    const newCols = columns.map(col => {
+      if (col.id !== colId) return col;
+      const idx = col.cards.findIndex(c => c.id === cardId);
+      if (idx <= 0) return col;
+      const cards = [...col.cards];
+      [cards[idx - 1], cards[idx]] = [cards[idx], cards[idx - 1]];
+      return { ...col, cards };
+    });
+    updateColumns(newCols);
+  }, [columns, updateColumns]);
+
+  const handleMoveDown = useCallback((cardId, colId) => {
+    const newCols = columns.map(col => {
+      if (col.id !== colId) return col;
+      const idx = col.cards.findIndex(c => c.id === cardId);
+      if (idx < 0 || idx >= col.cards.length - 1) return col;
+      const cards = [...col.cards];
+      [cards[idx], cards[idx + 1]] = [cards[idx + 1], cards[idx]];
+      return { ...col, cards };
+    });
+    updateColumns(newCols);
+  }, [columns, updateColumns]);
+
   const handleComplete = useCallback((card, fromColId) => {
     if (card.completed) return;
-
     const newCols = columns.map(col => {
       if (col.id !== fromColId) return col;
-      return {
-        ...col,
-        cards: col.cards.map(c =>
-          c.id === card.id ? { ...c, completed: true } : c
-        )
-      };
+      return { ...col, cards: col.cards.map(c => c.id === card.id ? { ...c, completed: true } : c) };
     });
-
     updateColumns(newCols);
-
     toArr(card.members).forEach(mid => {
-      if (mid !== currentUser?.id) {
-        const mb = members.find(m => m.id === mid);
-        if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`);
-      }
+      if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`); }
     });
-
     addToast(card.title, card.points || getPriority(card.priority).points);
   }, [columns, updateColumns, members, currentUser, onNotify, addToast]);
 
@@ -1003,21 +999,20 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const handleSave = (form, colId) => {
     const newCols = columns.map(col => {
       if (col.id !== colId) return col;
-      if (form.id) {
-        return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
-      } else {
-        const newCard = { ...form, id: uid() };
-        toArr(newCard.members).forEach(mid => {
-          if (mid !== currentUser?.id) {
-            const mb = members.find(m => m.id === mid);
-            if (mb) onNotify(mb.id, `Você foi adicionado ao card "${newCard.title}"`);
-          }
-        });
-        return { ...col, cards: [...col.cards, newCard] };
-      }
+      if (form.id) return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
+      const newCard = { ...form, id: uid() };
+      toArr(newCard.members).forEach(mid => {
+        if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `Você foi adicionado ao card "${newCard.title}"`); }
+      });
+      return { ...col, cards: [...col.cards, newCard] };
     });
     updateColumns(newCols);
     setModal(null);
+  };
+
+  const handleQuickAdd = (newCard, colId) => {
+    const newCols = columns.map(col => col.id === colId ? { ...col, cards: [...col.cards, newCard] } : col);
+    updateColumns(newCols);
   };
 
   const handleDelete = (cid, colId) => {
@@ -1037,61 +1032,123 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     updateColumns(columns.filter(c => c.id !== colId));
   };
 
-  const filterCard = card => {
-    if (search && !card.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filterMember !== "all" && !toArr(card.members).includes(filterMember)) return false;
-    return true;
-  };
+  const activeFilterName = myCardsMode
+    ? currentUser?.name?.split(" ")[0]
+    : filterMember !== "all"
+      ? members.find(m => m.id === filterMember)?.name?.split(" ")[0]
+      : null;
 
-  const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
+  const clearFilters = () => { setSearch(""); setFilterMember("all"); setMyCardsMode(false); };
 
   return (
     <div>
-      <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 200 })} />
-        <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 180 })}>
-          <option value="all">Todos</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name.split(" ")[0]}</option>)}
-        </select>
-        {(search || filterMember !== "all") && (
-          <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}`, flexShrink: 0 }}>
-            {totalVisible} card{totalVisible !== 1 ? "s" : ""}
-          </span>
+      {/* ── TOOLBAR REDESENHADA ── */}
+      <div className="board-toolbar" style={{
+        display: "flex", gap: 8, marginBottom: 16, alignItems: "center",
+        flexWrap: "wrap", background: T.bg1, borderRadius: 14,
+        padding: "10px 14px", border: `1px solid ${T.border}`,
+      }}>
+        {/* Busca */}
+        <div style={{ position: "relative", flex: 1, minWidth: 130, maxWidth: 210 }}>
+          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", color: T.textMuted }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." style={s.input({ paddingLeft: 30, background: T.bg2, fontSize: 13 })} />
+        </div>
+
+        {/* Filtro de membro (desabilitado no modo myCards) */}
+        {!myCardsMode && (
+          <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 170, background: T.bg2, fontSize: 13 })}>
+            <option value="all">👥 Todos</option>
+            {members.map(m => <option key={m.id} value={m.id}>{m.name.split(" ")[0]}</option>)}
+          </select>
         )}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button onClick={() => { const firstColId = sortedCols[0]?.id; if (!firstColId) return; setModal({ card: null, colId: firstColId }); }} style={s.btn(T.accent)}>+ Card</button>
-          <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text })}>+ Coluna</button>
+
+        {/* Breadcrumb de filtro ativo */}
+        {(activeFilterName || search) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 20, padding: "4px 10px", animation: "fadeIn .2s ease" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.accent, display: "inline-block", animation: "pulse 2s infinite" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.accent }}>
+              {activeFilterName ? `${activeFilterName}` : ""}{activeFilterName && search ? " · " : ""}{search ? `"${search}"` : ""}
+              {" · "}{totalVisible} card{totalVisible !== 1 ? "s" : ""}
+            </span>
+            <button onClick={clearFilters} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 14, padding: 0, lineHeight: 1, marginLeft: 2 }}>×</button>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
+          <button onClick={() => { const firstColId = visibleCols[0]?.id || sortedCols[0]?.id; if (!firstColId) return; setModal({ card: null, colId: firstColId }); }} style={s.btn(T.accent, { fontSize: 13 })}>+ Card</button>
+          <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text, fontSize: 13 })}>+ Coluna</button>
         </div>
       </div>
 
+      {/* ── BOARD COLUMNS ── */}
       <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
-        {sortedCols.map(col => (
-          <div key={col.id} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, col.id)}
-            style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
-                <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
-                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>{col.cards.filter(filterCard).length}</span>
+
+        {/* Empty state when filter hides all cols */}
+        {visibleCols.length === 0 && (effectiveFilter && effectiveFilter !== "all" || search) && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 12, background: T.bg1, borderRadius: 16, border: `1px dashed ${T.border}`, flex: 1, minWidth: 300 }}>
+            <span style={{ fontSize: 36 }}>🔍</span>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: T.text }}>Nenhum card encontrado</p>
+            <p style={{ margin: 0, fontSize: 13, color: T.textMuted, textAlign: "center" }}>{activeFilterName ? `${activeFilterName} não tem cards atribuídos.` : "Nenhum card corresponde à busca."}</p>
+            <button onClick={clearFilters} style={s.btn(T.bg3, { color: T.textSub, fontSize: 12, marginTop: 4 })}>Ver todos →</button>
+          </div>
+        )}
+
+        {visibleCols.map(col => {
+          const sortBy = colSortMap[col.id] || "manual";
+          const sortedCards = getSortedCards(col);
+          const visibleCards = sortedCards.filter(filterCard);
+          const colPts = col.cards.reduce((a, c) => a + (c.points || 0), 0);
+
+          return (
+            <div key={col.id} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, col.id)}
+              style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
+
+              {/* Column header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
+                  <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>{visibleCards.length}</span>
+                </div>
+                <div style={{ display: "flex", gap: 2, flexShrink: 0, alignItems: "center" }}>
+                  <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
+                  <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
+                  <button onClick={() => setModal({ card: null, colId: col.id })} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
-                <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
-                <button onClick={() => setModal({ card: null, colId: col.id })} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+
+              {/* Column meta: points + sort */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
+                <span style={{ fontSize: 10, color: T.amber, fontWeight: 700 }}>⭐ {colPts} pts</span>
+                <select value={sortBy} onChange={e => setColSortMap(m => ({ ...m, [col.id]: e.target.value }))}
+                  style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, color: T.textMuted, fontSize: 10, fontFamily: "inherit", padding: "2px 18px 2px 6px", cursor: "pointer", outline: "none", colorScheme: "dark", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center" }}>
+                  <option value="manual">Manual</option>
+                  <option value="due">Prazo</option>
+                  <option value="points">Pontos</option>
+                  <option value="priority">Prioridade</option>
+                </select>
+              </div>
+
+              {/* Cards */}
+              {visibleCards.map((card, idx) => (
+                <KanbanCard key={card.id} card={card} colId={col.id} members={members}
+                  onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+                  onDelete={handleDelete} onComplete={handleComplete}
+                  onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
+                  isFirst={idx === 0} isLast={idx === visibleCards.length - 1} />
+              ))}
+
+              {visibleCards.length === 0 && (
+                <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>
+              )}
+
+              {/* Quick add inline */}
+              <div style={{ marginTop: 4 }}>
+                <QuickAdd colId={col.id} taskTypes={taskTypes} currentUser={currentUser} onAdd={handleQuickAdd} />
               </div>
             </div>
-
-            {col.cards.filter(filterCard).map(card => (
-              <KanbanCard key={card.id} card={card} colId={col.id} members={members}
-                onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                onDelete={handleDelete} onComplete={handleComplete} />
-            ))}
-
-            {col.cards.filter(filterCard).length === 0 && (
-              <div style={{ textAlign: "center", padding: "16px 0", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
           <button onClick={() => setColModal({})}
@@ -1114,7 +1171,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       {typesModal && (
         <ManageTypesModal types={taskTypes} onSave={list => { updateTaskTypes(list); setTypesModal(false); }} onClose={() => setTypesModal(false)} />
       )}
-
       <ToastContainer toasts={toasts} />
     </div>
   );
@@ -1124,7 +1180,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 function UsersTab({ members, updateMembers, columns }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
-
   const allCards = columns.flatMap(c => c.cards);
   const stats = m => {
     const total = allCards.filter(c => toArr(c.members).includes(m.id)).length;
@@ -1143,14 +1198,19 @@ function UsersTab({ members, updateMembers, columns }) {
       <div className="users-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
         {ranked.map((m, i) => {
           const { total, done, pts } = stats(m);
+          const online = isOnline(m.id);
           return (
             <div key={m.id} style={s.card({ padding: 18, position: "relative" })}>
               <div style={{ position: "absolute", top: 12, right: 14, fontWeight: 900, fontSize: 22, color: i === 0 ? T.amber : T.textMuted }}>{i === 0 ? "🏆" : `#${i + 1}`}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                <Avatar member={m} size={44} />
+                <div style={{ position: "relative" }}>
+                  <Avatar member={m} size={44} />
+                  <div style={{ position: "absolute", bottom: 0, right: 0, width: 12, height: 12, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg2}`, animation: online ? "pulse 2s infinite" : "none" }} />
+                </div>
                 <div>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
                   <p style={{ margin: 0, fontSize: 12, color: T.textMuted }}>{m.role}</p>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: online ? T.green : T.textMuted }}>{online ? "● Online agora" : "● Offline"}</span>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -1217,9 +1277,7 @@ function AnalyticsTab({ columns, members }) {
   const [filter, setFilter] = useState("all");
   const today = new Date().toISOString().slice(0, 10);
 
-  const allCards = columns.flatMap(c =>
-    c.cards.map(card => ({ ...card, colId: c.id, colTitle: c.title }))
-  );
+  const allCards = columns.flatMap(c => c.cards.map(card => ({ ...card, colId: c.id, colTitle: c.title })));
   const completedCards = allCards.filter(c => c.completed);
   const overdueCards = allCards.filter(card => !card.completed && card.due && card.due < today);
 
@@ -1239,6 +1297,27 @@ function AnalyticsTab({ columns, members }) {
 
   const priCounts = { facil: 0, medio: 0, dificil: 0, complexo: 0 };
   filtered.forEach(c => { if (priCounts[c.priority] !== undefined) priCounts[c.priority]++; });
+
+  // Sparkline: cards concluídos por semana (últimas 8 semanas)
+  const getWeekSparkline = (memberId) => {
+    const weeks = 8;
+    const now = new Date();
+    const data = [];
+    for (let w = weeks - 1; w >= 0; w--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (w + 1) * 7);
+      const weekEnd = new Date(now);
+      weekEnd.setDate(now.getDate() - w * 7);
+      const count = completedCards.filter(c => {
+        if (memberId !== "all" && !toArr(c.members).includes(memberId)) return false;
+        if (!c.due) return false;
+        const d = new Date(c.due);
+        return d >= weekStart && d < weekEnd;
+      }).length;
+      data.push(count);
+    }
+    return data;
+  };
 
   const kpis = [
     ["Total", allCards.length, T.blue, "📋"],
@@ -1272,6 +1351,34 @@ function AnalyticsTab({ columns, members }) {
         ))}
       </div>
 
+      {/* Sparkline por membro */}
+      <div style={s.card({ padding: 18, marginBottom: 16 })}>
+        <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>📈 Ritmo de conclusão — últimas 8 semanas</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Equipe geral */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: T.accentDim, border: `2px solid ${T.accent}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>👥</div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.text, minWidth: 90 }}>Equipe</span>
+            <Sparkline data={getWeekSparkline("all")} color={T.accent} width={120} height={28} />
+            <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4 }}>
+              {getWeekSparkline("all").reduce((a, b) => a + b, 0)} concluídas
+            </span>
+          </div>
+          {members.map(m => {
+            const spark = getWeekSparkline(m.id);
+            const total = spark.reduce((a, b) => a + b, 0);
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Avatar member={m} size={28} showOnline />
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.text, minWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
+                <Sparkline data={spark} color={m.color} width={120} height={28} />
+                <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4 }}>{total} concluídas</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {overdueCards.length > 0 && (
         <div style={s.card({ padding: 18, marginBottom: 16, border: `1px solid ${T.red}44` })}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -1299,7 +1406,7 @@ function AnalyticsTab({ columns, members }) {
                     </div>
                   </div>
                   <div style={{ display: "flex", flexShrink: 0 }}>
-                    {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}><Avatar member={m} size={26} /></div>)}
+                    {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}><Avatar member={m} size={26} showOnline /></div>)}
                   </div>
                 </div>
               );
@@ -1336,8 +1443,8 @@ function AnalyticsTab({ columns, members }) {
           <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Pontuação por integrante</h3>
           {mStats.map((m, i) => (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, width: 18 }}>#{i + 1}</span>
-              <Avatar member={m} size={24} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? [T.amber, T.textSub, "#cd7f32"][i] : T.textMuted, width: 18 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}</span>
+              <Avatar member={m} size={24} showOnline />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3, gap: 4 }}>
                   <span style={{ fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
@@ -1412,12 +1519,12 @@ function SocialTab({ data, updateData }) {
     if (lines.length < 2) return [];
     const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
     const findCol = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-    const iTitle    = findCol("título","title","nome","name","video");
-    const iViews    = findCol("view","visualiz","impres");
-    const iLikes    = findCol("like","curtida");
+    const iTitle = findCol("título","title","nome","name","video");
+    const iViews = findCol("view","visualiz","impres");
+    const iLikes = findCol("like","curtida");
     const iComments = findCol("comment","comentar");
-    const iShares   = findCol("share","compartilh");
-    const iDate     = findCol("date","data");
+    const iShares = findCol("share","compartilh");
+    const iDate = findCol("date","data");
     return lines.slice(1).map((line, idx) => {
       const cols = line.split(",").map(c => c.trim().replace(/"/g, ""));
       const num = i => i >= 0 ? (parseInt(cols[i]) || 0) : 0;
@@ -1528,6 +1635,9 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const [sel, setSel] = useState(null);
   const [addModal, setAddModal] = useState(null);
   const [form, setForm] = useState({ title: "", type: taskTypes[0] || "Post", memberId: "" });
+  // Drag state for calendar
+  const [draggingEvent, setDraggingEvent] = useState(null);
+  const [dragOverDay, setDragOverDay] = useState(null);
 
   const year = cur.getFullYear(), month = cur.getMonth();
   const first = new Date(year, month, 1).getDay();
@@ -1541,6 +1651,27 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const allCards = columns.flatMap(c => c.cards);
   const memberColor = id => members.find(m => m.id === id)?.color || T.textMuted;
 
+  // Calendar drag handlers
+  const handleEventDragStart = (e, ev) => {
+    e.stopPropagation();
+    setDraggingEvent(ev);
+  };
+  const handleDayDragOver = (e, day) => {
+    e.preventDefault();
+    setDragOverDay(day);
+  };
+  const handleDayDrop = (e, day) => {
+    e.preventDefault();
+    if (!draggingEvent) return;
+    const newDate = dateStr(day);
+    const updatedEvents = toArr(events).map(ev => ev.id === draggingEvent.id ? { ...ev, date: newDate } : ev);
+    updateEvents(updatedEvents);
+    setDraggingEvent(null);
+    setDragOverDay(null);
+    setSel(day);
+  };
+  const handleDragEnd = () => { setDraggingEvent(null); setDragOverDay(null); };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -1551,6 +1682,13 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
           <button onClick={() => setCur(new Date(year, month + 1))} style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.text, fontSize: 16 }}>›</button>
         </div>
       </div>
+
+      {draggingEvent && (
+        <div style={{ background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 8, padding: "6px 12px", marginBottom: 10, fontSize: 12, color: T.accent, display: "flex", alignItems: "center", gap: 6 }}>
+          <span>📅</span> Arrastando: <strong>{draggingEvent.title}</strong> — solte em um dia para mover
+        </div>
+      )}
+
       <div style={{ overflowX: "auto" }}>
         <div style={s.card({ overflow: "hidden", minWidth: 320 })}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
@@ -1563,12 +1701,36 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
               const evs = eventsFor(day);
               const dueCards = allCards.filter(c => c.due === dateStr(day));
               const isSel = sel === day;
+              const isDragOver = dragOverDay === day;
+
               return (
-                <div key={day} onClick={() => setSel(day === sel ? null : day)}
-                  style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "6px 4px", cursor: "pointer", background: isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, transition: "background .15s" }}>
+                <div key={day}
+                  onClick={() => setSel(day === sel ? null : day)}
+                  onDragOver={e => handleDayDragOver(e, day)}
+                  onDrop={e => handleDayDrop(e, day)}
+                  onDragLeave={() => setDragOverDay(null)}
+                  style={{
+                    minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`,
+                    padding: "6px 4px", cursor: "pointer",
+                    background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2,
+                    border: isDragOver ? `2px solid ${T.accent}` : undefined,
+                    transition: "background .15s",
+                  }}>
                   <div style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 3 }}>{day}</div>
-                  {evs.slice(0, 2).map(ev => <div key={ev.id} style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</div>)}
-                  {dueCards.slice(0, 1).map(c => <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⭐ {c.title}</div>)}
+
+                  {evs.slice(0, 2).map(ev => (
+                    <div key={ev.id}
+                      draggable
+                      onDragStart={e => handleEventDragStart(e, ev)}
+                      onDragEnd={handleDragEnd}
+                      onClick={e => e.stopPropagation()}
+                      style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "grab", opacity: draggingEvent?.id === ev.id ? 0.4 : 1 }}>
+                      {ev.title}
+                    </div>
+                  ))}
+                  {dueCards.slice(0, 1).map(c => (
+                    <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⭐ {c.title}</div>
+                  ))}
                   {(evs.length + dueCards.length) > 3 && <div style={{ fontSize: 9, color: T.textMuted }}>+{evs.length + dueCards.length - 3}</div>}
                 </div>
               );
@@ -1576,6 +1738,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
           </div>
         </div>
       </div>
+
       {sel && (
         <div style={s.card({ marginTop: 14, padding: 14 })}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1591,7 +1754,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</p>
                   <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{ev.type}</p>
                 </div>
-                {mb && <Avatar member={mb} size={26} />}
+                {mb && <Avatar member={mb} size={26} showOnline />}
                 <button onClick={() => updateEvents(toArr(events).filter(e => e.id !== ev.id))} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>🗑️</button>
               </div>
             );
@@ -1610,6 +1773,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
           )}
         </div>
       )}
+
       {addModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setAddModal(null)}>
           <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
@@ -1643,15 +1807,25 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
 
 /* ─── APP ────────────────────────────────────────────────── */
 export default function App() {
-  const [members, setMembers]     = useState([]);
-  const [columns, setColumns]     = useState([]);
-  const [events, setEvents]       = useState([]);
+  const [members, setMembers]       = useState([]);
+  const [columns, setColumns]       = useState([]);
+  const [events, setEvents]         = useState([]);
   const [socialData, setSocialData] = useState({});
-  const [taskTypes, setTaskTypes] = useState(DEFAULT_TASK_TYPES);
+  const [taskTypes, setTaskTypes]   = useState(DEFAULT_TASK_TYPES);
   const [currentUser, setCurrentUser] = useState(null);
-  const [tab, setTab]             = useState("board");
-  const [notifs, setNotifs]       = useState({});
-  const [dbReady, setDbReady]     = useState(false);
+  const [tab, setTab]               = useState("board");
+  const [notifs, setNotifs]         = useState({});
+  const [dbReady, setDbReady]       = useState(false);
+  // Modo "Meus cards" — persiste entre abas via localStorage
+  const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
+
+  const setMyCardsMode = (val) => {
+    setMyCardsModeState(val);
+    localStorage.setItem(MY_CARDS_KEY, val ? "1" : "0");
+  };
+
+  // Presença online
+  useOnlinePresence(currentUser?.id);
 
   useEffect(() => {
     if (!dbReady || currentUser) return;
@@ -1739,13 +1913,33 @@ export default function App() {
               ))}
             </nav>
 
-            {/* Right: apenas sino + perfil + sair */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            {/* Right */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              {/* Toggle "Meus Cards" */}
+              <button
+                onClick={() => setMyCardsMode(!myCardsMode)}
+                title={myCardsMode ? "Exibindo só seus cards — clique para ver todos" : "Filtrar só seus cards"}
+                style={{
+                  background: myCardsMode ? T.accent : T.bg3,
+                  border: `1px solid ${myCardsMode ? T.accent : T.border}`,
+                  borderRadius: 8, padding: "5px 10px", cursor: "pointer",
+                  color: myCardsMode ? "#fff" : T.textMuted,
+                  fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+                  display: "flex", alignItems: "center", gap: 5,
+                  transition: "all .2s",
+                }}>
+                <span style={{ fontSize: 14 }}>🎯</span>
+                <span className="nav-label">{myCardsMode ? "Meus cards" : "Meus cards"}</span>
+              </button>
+
               <NotifBell notifs={myNotifs} onClear={clearNotifs} />
 
-              {/* Perfil com nome e cargo */}
+              {/* Perfil */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Avatar member={currentUser} size={32} />
+                <div style={{ position: "relative" }}>
+                  <Avatar member={currentUser} size={32} />
+                  <div style={{ position: "absolute", bottom: 0, right: 0, width: 9, height: 9, borderRadius: "50%", background: T.green, border: `2px solid ${T.bg1}`, animation: "pulse 2s infinite" }} />
+                </div>
                 <div style={{ lineHeight: 1.2 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
                   <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{currentUser.role}</p>
@@ -1763,7 +1957,7 @@ export default function App() {
 
         {/* CONTENT */}
         <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 12px 48px" }}>
-          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
+          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} />}
           {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
           {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
           {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
