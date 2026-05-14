@@ -953,11 +953,12 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     if (fromColId === "done") return;
 
     // Find the done column — first look by id, then by title
-    const doneCol = columns.find(c => c.id === "done") || columns.find(c => c.title.toLowerCase().includes("conclu"));
-    if (!doneCol) {
-      alert("Coluna 'Concluído' não encontrada. Crie uma coluna com o id 'done' ou título 'Concluído'.");
-      return;
-    }
+    const doneCol =
+  columns.find(c => c.id === "done") ||
+  columns.find(c => c.title.toLowerCase().includes("conclu")) ||
+  [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).at(-1);
+
+if (!doneCol || doneCol.id === fromColId) return;
 
     const newCols = columns.map(col => {
       if (col.id === fromColId) {
