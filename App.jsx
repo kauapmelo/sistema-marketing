@@ -14,7 +14,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 
-/* ─── GLOBAL DARK STYLES ─────────────────────────────────── */
 const GLOBAL_STYLE = `
   *, *::before, *::after { box-sizing: border-box; }
   html, body { background: #0a0a0f; margin: 0; padding: 0; }
@@ -23,53 +22,41 @@ const GLOBAL_STYLE = `
   ::-webkit-scrollbar-thumb { background: #2e2e3a; border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: #44445a; }
   input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator {
-    color-scheme: dark;
-    background: #22222c;
-    border-color: #2e2e3a;
+    color-scheme: dark; background: #22222c; border-color: #2e2e3a;
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.7);
-    cursor: pointer;
-  }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
   input[type="checkbox"] { accent-color: #7c6af7; }
   select option { background: #22222c; color: #f0f0f5; }
 
   @keyframes toastIn {
     from { opacity: 0; transform: translateY(20px) scale(.95); }
-    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
   }
   @keyframes toastOut {
-    from { opacity: 1; transform: translateY(0)   scale(1);    }
+    from { opacity: 1; transform: translateY(0) scale(1); }
     to   { opacity: 0; transform: translateY(20px) scale(.95); }
   }
   @keyframes completePop {
     0%   { transform: scale(1); }
-    40%  { transform: scale(1.18); }
+    40%  { transform: scale(1.06); }
     100% { transform: scale(1); }
   }
 
-  /* ── MOBILE RESPONSIVE ── */
   @media (max-width: 600px) {
     .nav-label { display: none; }
     .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
     .analytics-grid { grid-template-columns: 1fr !important; }
     .pri-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    .header-nav { gap: 0 !important; }
-    .header-nav button { padding: 10px 8px !important; font-size: 18px !important; }
     .board-toolbar { flex-direction: column !important; align-items: stretch !important; }
     .board-toolbar input,
     .board-toolbar select { max-width: 100% !important; width: 100% !important; }
-    .board-toolbar .toolbar-actions { display: flex; gap: 8px; }
     .card-modal-body { flex-direction: column !important; }
     .card-modal-right { width: 100% !important; border-right: none !important; border-top: 1px solid #2e2e3a; }
     .users-grid { grid-template-columns: 1fr !important; }
     .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
-    .header-user-info { display: none !important; }
-    .header-right { gap: 8px !important; }
   }
 `;
 
-/* ─── THEME ─────────────────────────────────────────────── */
 const T = {
   bg0: "#0a0a0f", bg1: "#111118", bg2: "#18181f", bg3: "#22222c",
   bg4: "#2a2a36", border: "#2e2e3a", borderHover: "#44445a",
@@ -85,7 +72,6 @@ const T = {
 
 const MEMBER_COLORS = ["#7c6af7","#22c55e","#f59e0b","#3b82f6","#ec4899","#14b8a6","#ef4444","#a855f7","#06b6d4","#84cc16"];
 
-/* ─── PRIORIDADES ────────────────────────────────────────── */
 const PRIORITIES = [
   { id: "facil",    label: "Fácil",    points: 50,  color: "#22c55e" },
   { id: "medio",    label: "Médio",    points: 100, color: "#3b82f6" },
@@ -96,7 +82,6 @@ const getPriority = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[0];
 
 const DEFAULT_TASK_TYPES = ["Post","Story","Reels","E-mail","Blog","Anúncio","Relatório","Reunião","Design","Vídeo"];
 
-/* ─── HELPERS ────────────────────────────────────────────── */
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const initials = n => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 const fmtDate = d => d ? d.slice(5).replace("-", "/") : "";
@@ -104,7 +89,6 @@ const fmtNum = n => n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
 const hashPwd = (pwd) => btoa(encodeURIComponent(pwd));
 const REMEMBER_KEY = "mkt_remember_user";
 
-/* ─── FIREBASE NORMALIZERS ───────────────────────────────── */
 const toArr = (val) => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -129,7 +113,6 @@ const normalizeCols = (val) => {
   return toArr(val).map(normalizeCol);
 };
 
-/* ─── INITIAL DATA ───────────────────────────────────────── */
 const INIT_MEMBERS = [
   { id: "m1", name: "Ana Silva",    avatar: "AS", color: "#7c6af7", role: "Designer",    passwordHash: hashPwd("1234"), photo: null },
   { id: "m2", name: "Bruno Costa",  avatar: "BC", color: "#22c55e", role: "Copywriter",  passwordHash: hashPwd("1234"), photo: null },
@@ -138,20 +121,20 @@ const INIT_MEMBERS = [
 ];
 
 const INIT_COLUMNS = [
-  { id: "backlog", title: "Backlog",       color: T.textMuted, order: 0, cards: [
-    { id: "c101", title: "Criar calendário de conteúdo junho", type: "Blog",    points: 100, members: ["m1","m2"], priority: "medio",   due: "2026-05-20", desc: "", mentions: [], comments: [], checklist: [] },
-    { id: "c102", title: "Design banner campanha verão",       type: "Design",  points: 150, members: ["m1"],      priority: "dificil", due: "2026-05-22", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "backlog", title: "Backlog",      color: T.textMuted, order: 0, cards: [
+    { id: "c101", title: "Criar calendário de conteúdo junho", type: "Blog",   points: 100, members: ["m1","m2"], priority: "medio",   due: "2026-05-20", desc: "", mentions: [], comments: [], checklist: [], completed: false },
+    { id: "c102", title: "Design banner campanha verão",       type: "Design", points: 150, members: ["m1"],      priority: "dificil", due: "2026-05-22", desc: "", mentions: [], comments: [], checklist: [], completed: false },
   ]},
-  { id: "doing",   title: "Em Andamento",  color: T.blue,      order: 1, cards: [
-    { id: "c103", title: "Reels produto novo – gravação",  type: "Reels",   points: 150, members: ["m3"], priority: "dificil", due: "2026-05-15", desc: "", mentions: [], comments: [], checklist: [] },
-    { id: "c104", title: "Anúncios Google Ads maio",       type: "Anúncio", points: 100, members: ["m4"], priority: "medio",   due: "2026-05-16", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "doing",  title: "Em Andamento", color: T.blue,      order: 1, cards: [
+    { id: "c103", title: "Reels produto novo – gravação", type: "Reels",   points: 150, members: ["m3"], priority: "dificil", due: "2026-05-15", desc: "", mentions: [], comments: [], checklist: [], completed: false },
+    { id: "c104", title: "Anúncios Google Ads maio",      type: "Anúncio", points: 100, members: ["m4"], priority: "medio",   due: "2026-05-16", desc: "", mentions: [], comments: [], checklist: [], completed: false },
   ]},
-  { id: "review",  title: "Revisão",       color: T.amber,     order: 2, cards: [
-    { id: "c105", title: "E-mail marketing semanal", type: "E-mail", points: 100, members: ["m2","m4"], priority: "medio", due: "2026-05-14", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "review", title: "Revisão",      color: T.amber,     order: 2, cards: [
+    { id: "c105", title: "E-mail marketing semanal", type: "E-mail", points: 100, members: ["m2","m4"], priority: "medio", due: "2026-05-14", desc: "", mentions: [], comments: [], checklist: [], completed: false },
   ]},
-  { id: "done",    title: "Concluído",     color: T.green,     order: 3, cards: [
-    { id: "c106", title: "Post Instagram produto A", type: "Post",      points: 50,  members: ["m3"], priority: "facil",   due: "2026-05-10", desc: "", mentions: [], comments: [], checklist: [] },
-    { id: "c107", title: "Relatório mensal abril",   type: "Relatório", points: 150, members: ["m4"], priority: "dificil", due: "2026-05-12", desc: "", mentions: [], comments: [], checklist: [] },
+  { id: "done",   title: "Concluído",    color: T.green,     order: 3, cards: [
+    { id: "c106", title: "Post Instagram produto A", type: "Post",      points: 50,  members: ["m3"], priority: "facil",   due: "2026-05-10", desc: "", mentions: [], comments: [], checklist: [], completed: true },
+    { id: "c107", title: "Relatório mensal abril",   type: "Relatório", points: 150, members: ["m4"], priority: "dificil", due: "2026-05-12", desc: "", mentions: [], comments: [], checklist: [], completed: true },
   ]},
 ];
 
@@ -178,7 +161,6 @@ const INIT_SOCIAL = {
   ],
 };
 
-/* ─── STYLES ─────────────────────────────────────────────── */
 const s = {
   card: (extra = {}) => ({ background: T.bg2, borderRadius: 12, border: `1px solid ${T.border}`, ...extra }),
   btn: (bg = T.accent, extra = {}) => ({
@@ -187,51 +169,28 @@ const s = {
     fontFamily: "inherit", transition: "opacity .15s", ...extra
   }),
   input: (extra = {}) => ({
-    background: T.bg3,
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
-    color: T.text,
-    padding: "8px 12px",
-    fontSize: 14,
-    width: "100%",
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    outline: "none",
-    colorScheme: "dark",
-    WebkitAppearance: "none",
-    appearance: "none",
-    ...extra
+    background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8,
+    color: T.text, padding: "8px 12px", fontSize: 14, width: "100%",
+    boxSizing: "border-box", fontFamily: "inherit", outline: "none",
+    colorScheme: "dark", WebkitAppearance: "none", appearance: "none", ...extra
   }),
   select: (extra = {}) => ({
-    background: T.bg3,
-    border: `1px solid ${T.border}`,
-    borderRadius: 8,
-    color: T.text,
-    padding: "8px 32px 8px 12px",
-    fontSize: 14,
-    width: "100%",
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    outline: "none",
-    colorScheme: "dark",
-    WebkitAppearance: "none",
-    appearance: "none",
+    background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8,
+    color: T.text, padding: "8px 32px 8px 12px", fontSize: 14, width: "100%",
+    boxSizing: "border-box", fontFamily: "inherit", outline: "none",
+    colorScheme: "dark", WebkitAppearance: "none", appearance: "none",
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 10px center",
-    cursor: "pointer",
-    ...extra
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", cursor: "pointer", ...extra
   }),
   label: { fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 },
   badge: (color) => ({ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: color + "22", color, letterSpacing: .5 }),
 };
 
-/* ─── COMPONENTS ─────────────────────────────────────────── */
 function GlobalStyles() {
   return <style>{GLOBAL_STYLE}</style>;
 }
 
-/* ─── FIX: Avatar now supports photo ────────────────────── */
+/* ─── AVATAR ─────────────────────────────────────────────── */
 function Avatar({ member, size = 28, style = {} }) {
   if (member.photo) {
     return (
@@ -254,12 +213,10 @@ function Pill({ label, color }) {
 /* ─── TOAST ──────────────────────────────────────────────── */
 function Toast({ toast }) {
   const [leaving, setLeaving] = useState(false);
-
   useEffect(() => {
     const t1 = setTimeout(() => setLeaving(true), 3200);
     return () => clearTimeout(t1);
   }, []);
-
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 14,
@@ -269,19 +226,10 @@ function Toast({ toast }) {
       animation: `${leaving ? "toastOut" : "toastIn"} .35s ease forwards`,
       minWidth: 260, maxWidth: 340,
     }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: "50%",
-        background: T.green + "22", border: `2px solid ${T.green}55`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 20, flexShrink: 0,
-      }}>✅</div>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", background: T.green + "22", border: `2px solid ${T.green}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>✅</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.text }}>
-          Tarefa concluída!
-        </p>
-        <p style={{ margin: "0 0 4px", fontSize: 12, color: T.textSub, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {toast.title}
-        </p>
+        <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.text }}>Tarefa concluída!</p>
+        <p style={{ margin: "0 0 4px", fontSize: 12, color: T.textSub, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{toast.title}</p>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.amber + "22", border: `1px solid ${T.amber}44`, borderRadius: 20, padding: "2px 10px" }}>
           <span style={{ fontSize: 13 }}>⭐</span>
           <span style={{ fontSize: 13, fontWeight: 800, color: T.amber }}>+{toast.points} pts</span>
@@ -293,12 +241,7 @@ function Toast({ toast }) {
 
 function ToastContainer({ toasts }) {
   return (
-    <div style={{
-      position: "fixed", bottom: 20, right: 16, left: 16,
-      display: "flex", flexDirection: "column", gap: 10,
-      zIndex: 9999, pointerEvents: "none",
-      alignItems: "flex-end",
-    }}>
+    <div style={{ position: "fixed", bottom: 20, right: 16, left: 16, display: "flex", flexDirection: "column", gap: 10, zIndex: 9999, pointerEvents: "none", alignItems: "flex-end" }}>
       {toasts.map(t => <Toast key={t.id} toast={t} />)}
     </div>
   );
@@ -343,49 +286,185 @@ function NotifBell({ notifs, onClear }) {
   );
 }
 
-/* ─── PHOTO UPLOAD HELPER ────────────────────────────────── */
+/* ─── PHOTO CROP MODAL ───────────────────────────────────── */
+function PhotoCropModal({ imageSrc, onConfirm, onClose }) {
+  const canvasRef = useRef();
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imgRef = useRef(new window.Image());
+  const SIZE = 280;
+
+  useEffect(() => {
+    const img = imgRef.current;
+    img.onload = () => draw();
+    img.src = imageSrc;
+  }, [imageSrc]);
+
+  useEffect(() => { draw(); }, [scale, offset]);
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const img = imgRef.current;
+    if (!img.complete || !img.naturalWidth) return;
+
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    // Draw image
+    const baseScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight);
+    const s2 = baseScale * scale;
+    const w = img.naturalWidth * s2;
+    const h = img.naturalHeight * s2;
+    const x = (SIZE - w) / 2 + offset.x;
+    const y = (SIZE - h) / 2 + offset.y;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+
+    // Overlay ring
+    ctx.strokeStyle = "#7c6af7";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 2, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+
+  const onMouseDown = (e) => {
+    setDragging(true);
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setDragStart({ x: clientX - offset.x, y: clientY - offset.y });
+  };
+
+  const onMouseMove = (e) => {
+    if (!dragging) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setOffset({ x: clientX - dragStart.x, y: clientY - dragStart.y });
+  };
+
+  const onMouseUp = () => setDragging(false);
+
+  const handleConfirm = () => {
+    const canvas = canvasRef.current;
+    const out = document.createElement("canvas");
+    out.width = 200;
+    out.height = 200;
+    const ctx = out.getContext("2d");
+    ctx.drawImage(canvas, 0, 0, SIZE, SIZE, 0, 0, 200, 200);
+    onConfirm(out.toDataURL("image/jpeg", 0.85));
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div style={s.card({ padding: 28, maxWidth: 360, width: "100%", boxShadow: "0 24px 64px #000000cc", textAlign: "center" })}>
+        <h3 style={{ margin: "0 0 6px", fontWeight: 800, color: T.text, fontSize: 17 }}>Ajustar foto</h3>
+        <p style={{ margin: "0 0 20px", color: T.textMuted, fontSize: 13 }}>Arraste para posicionar · Zoom para aproximar</p>
+
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <canvas
+            ref={canvasRef}
+            width={SIZE}
+            height={SIZE}
+            style={{ borderRadius: "50%", cursor: dragging ? "grabbing" : "grab", userSelect: "none", touchAction: "none", border: `3px solid ${T.accent}` }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onTouchStart={onMouseDown}
+            onTouchMove={onMouseMove}
+            onTouchEnd={onMouseUp}
+          />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <label style={{ ...s.label, marginBottom: 0 }}>🔍 Zoom</label>
+            <span style={{ fontSize: 12, color: T.textSub }}>{Math.round(scale * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="3"
+            step="0.05"
+            value={scale}
+            onChange={e => setScale(parseFloat(e.target.value))}
+            style={{ width: "100%", accentColor: T.accent, cursor: "pointer" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onClose} style={s.btn(T.bg4, { flex: 1, color: T.text })}>Cancelar</button>
+          <button onClick={handleConfirm} style={s.btn(T.accent, { flex: 1 })}>Usar foto ✓</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PHOTO UPLOADER ─────────────────────────────────────── */
 function PhotoUploader({ currentPhoto, color, name, onUpload }) {
   const inputRef = useRef();
+  const [cropSrc, setCropSrc] = useState(null);
 
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Foto muito grande! Máximo 2MB."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Foto muito grande! Máximo 5MB."); return; }
     const reader = new FileReader();
-    reader.onload = ev => onUpload(ev.target.result);
+    reader.onload = ev => setCropSrc(ev.target.result);
     reader.readAsDataURL(file);
     e.target.value = "";
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-      <div
-        onClick={() => inputRef.current.click()}
-        style={{ width: 80, height: 80, borderRadius: "50%", overflow: "hidden", cursor: "pointer", position: "relative", border: `3px solid ${T.accent}`, flexShrink: 0 }}
-      >
-        {currentPhoto
-          ? <img src={currentPhoto} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#fff" }}>{initials(name || "?")}</div>
-        }
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .2s" }}
-          onMouseEnter={e => e.currentTarget.style.opacity = 1}
-          onMouseLeave={e => e.currentTarget.style.opacity = 0}
+    <>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+        <div
+          onClick={() => inputRef.current.click()}
+          style={{ width: 90, height: 90, borderRadius: "50%", overflow: "hidden", cursor: "pointer", position: "relative", border: `3px solid ${T.accent}`, flexShrink: 0 }}
         >
-          <span style={{ fontSize: 22 }}>📷</span>
+          {currentPhoto
+            ? <img src={currentPhoto} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <div style={{ width: "100%", height: "100%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#fff" }}>{initials(name || "?")}</div>
+          }
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .2s" }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0}
+          >
+            <span style={{ fontSize: 22 }}>📷</span>
+            <span style={{ fontSize: 10, color: "#fff", fontWeight: 700, marginTop: 2 }}>Alterar</span>
+          </div>
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={() => inputRef.current.click()} style={s.btn(T.bg4, { color: T.text, fontSize: 11, padding: "5px 12px" })}>
+            {currentPhoto ? "Trocar foto" : "Adicionar foto"}
+          </button>
+          {currentPhoto && (
+            <button type="button" onClick={() => onUpload(null)} style={s.btn(T.redDim, { color: T.red, fontSize: 11, padding: "5px 12px" })}>
+              Remover
+            </button>
+          )}
         </div>
       </div>
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
-      <div style={{ display: "flex", gap: 6 }}>
-        <button type="button" onClick={() => inputRef.current.click()} style={s.btn(T.bg4, { color: T.text, fontSize: 11, padding: "5px 10px" })}>
-          {currentPhoto ? "Trocar foto" : "Adicionar foto"}
-        </button>
-        {currentPhoto && (
-          <button type="button" onClick={() => onUpload(null)} style={s.btn(T.redDim, { color: T.red, fontSize: 11, padding: "5px 10px" })}>
-            Remover
-          </button>
-        )}
-      </div>
-    </div>
+
+      {cropSrc && (
+        <PhotoCropModal
+          imageSrc={cropSrc}
+          onConfirm={data => { onUpload(data); setCropSrc(null); }}
+          onClose={() => setCropSrc(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -420,12 +499,8 @@ function LoginScreen({ members, onLogin, onRegister }) {
     if (!name.trim()) { setError("Digite seu nome."); return; }
     if (!newPassword.trim()) { setError("Defina uma senha."); return; }
     const newMember = {
-      id: uid(),
-      name: name.trim(),
-      avatar: initials(name.trim()),
-      color,
-      photo: photo || null,
-      role: role.trim() || "Membro",
+      id: uid(), name: name.trim(), avatar: initials(name.trim()),
+      color, photo: photo || null, role: role.trim() || "Membro",
       passwordHash: hashPwd(newPassword)
     };
     onRegister(newMember);
@@ -476,41 +551,21 @@ function LoginScreen({ members, onLogin, onRegister }) {
               <div style={{ marginBottom: 14 }}>
                 <label style={s.label}>Senha</label>
                 <div style={{ position: "relative" }}>
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleLogin()}
-                    placeholder="Digite sua senha"
-                    style={{ ...s.input(), paddingRight: 40 }}
-                  />
-                  <button onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>
-                    {showPwd ? "🙈" : "👁️"}
-                  </button>
+                  <input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="Digite sua senha" style={{ ...s.input(), paddingRight: 40 }} />
+                  <button onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>{showPwd ? "🙈" : "👁️"}</button>
                 </div>
               </div>
             )}
 
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <input
-                type="checkbox"
-                id="remember"
-                checked={remember}
-                onChange={e => setRemember(e.target.checked)}
-                style={{ accentColor: T.accent, width: 15, height: 15, cursor: "pointer" }}
-              />
-              <label htmlFor="remember" style={{ fontSize: 13, color: T.textSub, cursor: "pointer" }}>
-                Lembrar neste dispositivo
-              </label>
+              <input type="checkbox" id="remember" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ accentColor: T.accent, width: 15, height: 15, cursor: "pointer" }} />
+              <label htmlFor="remember" style={{ fontSize: 13, color: T.textSub, cursor: "pointer" }}>Lembrar neste dispositivo</label>
             </div>
 
-            <button onClick={handleLogin} disabled={!selId} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15, opacity: selId ? 1 : .4 })}>
-              Entrar
-            </button>
+            <button onClick={handleLogin} disabled={!selId} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15, opacity: selId ? 1 : .4 })}>Entrar</button>
           </div>
         ) : (
           <div>
-            {/* Photo uploader on register */}
             <div style={{ marginBottom: 16 }}>
               <label style={s.label}>Foto de perfil (opcional)</label>
               <PhotoUploader currentPhoto={photo} color={color} name={name} onUpload={setPhoto} />
@@ -524,16 +579,8 @@ function LoginScreen({ members, onLogin, onRegister }) {
 
             <label style={s.label}>Senha</label>
             <div style={{ position: "relative", marginBottom: 14 }}>
-              <input
-                type={showNewPwd ? "text" : "password"}
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="Crie uma senha"
-                style={{ ...s.input(), paddingRight: 40 }}
-              />
-              <button onClick={() => setShowNewPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>
-                {showNewPwd ? "🙈" : "👁️"}
-              </button>
+              <input type={showNewPwd ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Crie uma senha" style={{ ...s.input(), paddingRight: 40 }} />
+              <button onClick={() => setShowNewPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>{showNewPwd ? "🙈" : "👁️"}</button>
             </div>
 
             <label style={s.label}>Cor do perfil</label>
@@ -543,9 +590,7 @@ function LoginScreen({ members, onLogin, onRegister }) {
               ))}
             </div>
 
-            <button onClick={handleRegister} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15 })}>
-              Criar conta
-            </button>
+            <button onClick={handleRegister} style={s.btn(T.accent, { width: "100%", padding: "12px", fontSize: 15 })}>Criar conta</button>
           </div>
         )}
       </div>
@@ -557,13 +602,11 @@ function LoginScreen({ members, onLogin, onRegister }) {
 function ManageTypesModal({ types, onSave, onClose }) {
   const [list, setList] = useState([...types]);
   const [newType, setNewType] = useState("");
-
   const add = () => {
     const t = newType.trim();
     if (t && !list.includes(t)) { setList([...list, t]); setNewType(""); }
   };
   const remove = t => setList(list.filter(x => x !== t));
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={s.card({ padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px #000000cc" })}>
@@ -580,13 +623,7 @@ function ManageTypesModal({ types, onSave, onClose }) {
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          <input
-            value={newType}
-            onChange={e => setNewType(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && add()}
-            placeholder="Novo tipo..."
-            style={s.input({ flex: 1 })}
-          />
+          <input value={newType} onChange={e => setNewType(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="Novo tipo..." style={s.input({ flex: 1 })} />
           <button onClick={add} style={s.btn(T.accent)}>+</button>
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -613,11 +650,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
         checklist: toArr(card.checklist),
       };
     }
-    return {
-      title: "", type: taskTypes[0] || "Post", points: defP.points,
-      members: [], priority: defP.id, due: "", desc: "",
-      mentions: [], comments: [], checklist: []
-    };
+    return { title: "", type: taskTypes[0] || "Post", points: defP.points, members: [], priority: defP.id, due: "", desc: "", mentions: [], comments: [], checklist: [], completed: false };
   });
 
   const [mention, setMention] = useState("");
@@ -644,12 +677,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
   const addComment = () => {
     if (!comment.trim()) return;
-    const c = {
-      id: uid(),
-      text: comment.trim(),
-      author: currentUser?.name || "Anônimo",
-      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-    };
+    const c = { id: uid(), text: comment.trim(), author: currentUser?.name || "Anônimo", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) };
     setF("comments", [...form.comments, c]);
     setComment("");
     form.members.forEach(mid => {
@@ -667,7 +695,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
   };
   const toggleCheck = id => setF("checklist", form.checklist.map(c => c.id === id ? { ...c, done: !c.done } : c));
   const removeCheck = id => setF("checklist", form.checklist.filter(c => c.id !== id));
-
   const doneChecks = form.checklist.filter(c => c.done).length;
 
   const handleSave = () => {
@@ -678,31 +705,17 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "16px" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ width: "100%", maxWidth: 680, ...s.card({ padding: 0, boxShadow: "0 24px 64px #000000cc", overflow: "hidden", marginBottom: 16 }) }}>
-        {/* Header */}
         <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <input
-              value={form.title}
-              onChange={e => setF("title", e.target.value)}
-              placeholder="Título do card..."
-              style={s.input({ fontSize: 16, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1, width: "auto" })}
-              autoFocus
-            />
+            <input value={form.title} onChange={e => setF("title", e.target.value)} placeholder="Título do card..." style={s.input({ fontSize: 16, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1, width: "auto" })} autoFocus />
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0, flexShrink: 0 }}>×</button>
           </div>
         </div>
 
         <div className="card-modal-body" style={{ display: "flex", flexDirection: "row" }}>
-          {/* LEFT */}
           <div style={{ flex: 1, padding: "16px 20px", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
             <label style={s.label}>📝 Descrição</label>
-            <textarea
-              value={form.desc}
-              onChange={e => setF("desc", e.target.value)}
-              placeholder="Descrição..."
-              rows={3}
-              style={{ ...s.input({ resize: "vertical", marginBottom: 16, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }}
-            />
+            <textarea value={form.desc} onChange={e => setF("desc", e.target.value)} placeholder="Descrição..." rows={3} style={{ ...s.input({ resize: "vertical", marginBottom: 16, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }} />
 
             <label style={s.label}>☑️ Checklist {form.checklist.length > 0 && `(${doneChecks}/${form.checklist.length})`}</label>
             {form.checklist.length > 0 && (
@@ -740,7 +753,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
             </div>
           </div>
 
-          {/* RIGHT */}
           <div className="card-modal-right" style={{ width: 200, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14, background: T.bg2, flexShrink: 0 }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -748,7 +760,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 <button onClick={onManageTypes} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 11, fontWeight: 700, padding: 0 }}>+ Gerenciar</button>
               </div>
               <select value={form.type} onChange={e => setF("type", e.target.value)} style={s.select({ padding: "6px 32px 6px 10px", fontSize: 13 })}>
-                {taskTypes.map(t => <option key={t} style={{ background: T.bg3, color: T.text }}>{t}</option>)}
+                {taskTypes.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
 
@@ -767,8 +779,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
             <div>
               <label style={s.label}>Prazo</label>
-              <input type="date" value={form.due} onChange={e => setF("due", e.target.value)}
-                style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark", width: "100%" })} />
+              <input type="date" value={form.due} onChange={e => setF("due", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark", width: "100%" })} />
             </div>
 
             <div>
@@ -818,17 +829,16 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const done = checklist.filter(c => c.done).length;
   const pri = getPriority(card.priority);
   const today = new Date().toISOString().slice(0, 10);
-  const isOverdue = card.due && card.due < today;
-  const isDoneCol = colId === "done";
+  const isCompleted = !!card.completed;
+  const isOverdue = card.due && card.due < today && !isCompleted;
 
-  /* ── FIX: handle complete with animation ── */
   const handleComplete = (e) => {
     e.stopPropagation();
-    if (completing) return;
+    if (completing || isCompleted) return;
     setCompleting(true);
-    // slight delay so animation shows before card disappears
     setTimeout(() => {
       onComplete(card, colId);
+      setCompleting(false);
     }, 320);
   };
 
@@ -838,38 +848,47 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
       style={{
-        background: T.bg3, borderRadius: 10, padding: "12px 12px",
-        border: `1px solid ${completing ? T.green : drag ? T.accent : isOverdue ? T.red + "55" : T.border}`,
-        cursor: "grab", opacity: drag ? .5 : completing ? .7 : 1,
-        marginBottom: 8, transition: "border .15s, opacity .2s",
+        background: isCompleted ? "#22c55e08" : T.bg3,
+        borderRadius: 10,
+        padding: "12px 12px",
+        border: `1.5px solid ${
+          completing  ? T.green :
+          isCompleted ? T.green :
+          drag        ? T.accent :
+          isOverdue   ? T.red + "77" :
+          T.border
+        }`,
+        cursor: "grab",
+        opacity: drag ? .5 : 1,
+        marginBottom: 8,
+        transition: "border .3s, background .3s",
         animation: completing ? "completePop .32s ease" : "none",
+        position: "relative",
+        overflow: "hidden",
       }}>
 
+      {/* Faixa verde no topo quando concluído */}
+      {isCompleted && (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: T.text, lineHeight: 1.4, flex: 1 }}>{card.title}</span>
+        <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>
+          {card.title}
+        </span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          {!isDoneCol && (
-            <button
-              title="Concluir tarefa"
-              onClick={handleComplete}
-              disabled={completing}
-              style={{
-                background: completing ? T.green + "40" : T.green + "18",
-                border: `1px solid ${T.green}44`,
-                borderRadius: 6,
-                cursor: completing ? "default" : "pointer",
-                color: T.green,
-                fontSize: 12,
-                padding: "2px 5px",
-                fontFamily: "inherit",
-                fontWeight: 700,
-                lineHeight: 1.4,
-                transition: "background .15s",
-              }}
-            >
-              ✅
-            </button>
-          )}
+          <button
+            title={isCompleted ? "Já concluído" : "Marcar como concluído"}
+            onClick={handleComplete}
+            disabled={completing || isCompleted}
+            style={{
+              background: isCompleted ? T.green + "33" : completing ? T.green + "40" : T.green + "18",
+              border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`,
+              borderRadius: 6, cursor: isCompleted ? "default" : "pointer",
+              color: T.green, fontSize: 12, padding: "2px 5px",
+              fontFamily: "inherit", fontWeight: 700, lineHeight: 1.4, transition: "background .15s",
+            }}
+          >✅</button>
           <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
           <button onClick={() => onDelete(card.id, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>🗑️</button>
         </div>
@@ -878,6 +897,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         <Pill label={card.type} color={T.accent} />
         <Pill label={pri.label} color={pri.color} />
+        {isCompleted && <Pill label="✅ Concluído" color={T.green} />}
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -900,7 +920,6 @@ function ColumnModal({ col, onSave, onClose }) {
   const COL_COLORS = [T.textMuted, T.blue, T.amber, T.green, T.red, T.pink, T.teal, T.accent];
   const [title, setTitle] = useState(col?.title || "");
   const [color, setColor] = useState(col?.color || T.textMuted);
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
@@ -917,13 +936,7 @@ function ColumnModal({ col, onSave, onClose }) {
           <button onClick={onClose} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
           <button onClick={() => {
             if (!title.trim()) return;
-            onSave({
-              id: col?.id || `col_${uid()}`,
-              title: title.trim(),
-              color,
-              cards: col?.cards || [],
-              order: col?.order ?? 999
-            });
+            onSave({ id: col?.id || `col_${uid()}`, title: title.trim(), color, cards: col?.cards || [], order: col?.order ?? 999 });
           }} style={s.btn(T.accent)}>Salvar</button>
         </div>
       </div>
@@ -948,26 +961,18 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  /* ── FIX: handleComplete now correctly moves card to "done" col ── */
+  /* ── handleComplete: marca concluído na mesma coluna ── */
   const handleComplete = useCallback((card, fromColId) => {
-    if (fromColId === "done") return;
-
-    // Find the done column — first look by id, then by title
-    const doneCol =
-  columns.find(c => c.id === "done") ||
-  columns.find(c => c.title.toLowerCase().includes("conclu")) ||
-  [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).at(-1);
-
-if (!doneCol || doneCol.id === fromColId) return;
+    if (card.completed) return;
 
     const newCols = columns.map(col => {
-      if (col.id === fromColId) {
-        return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
-      }
-      if (col.id === doneCol.id) {
-        return { ...col, cards: [...toArr(col.cards), { ...card }] };
-      }
-      return col;
+      if (col.id !== fromColId) return col;
+      return {
+        ...col,
+        cards: col.cards.map(c =>
+          c.id === card.id ? { ...c, completed: true } : c
+        )
+      };
     });
 
     updateColumns(newCols);
@@ -988,17 +993,7 @@ if (!doneCol || doneCol.id === fromColId) return;
       if (fromCol === toColId) return;
       const newCols = columns.map(col => {
         if (col.id === fromCol) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
-        if (col.id === toColId) {
-          if (toColId === "done") {
-            toArr(card.members).forEach(mid => {
-              if (mid !== currentUser?.id) {
-                const mb = members.find(m => m.id === mid);
-                if (mb) onNotify(mb.id, `"${card.title}" foi movido para Concluído!`);
-              }
-            });
-          }
-          return { ...col, cards: [...col.cards, card] };
-        }
+        if (col.id === toColId) return { ...col, cards: [...col.cards, card] };
         return col;
       });
       updateColumns(newCols);
@@ -1032,11 +1027,8 @@ if (!doneCol || doneCol.id === fromColId) return;
 
   const handleSaveCol = colData => {
     const exists = columns.find(c => c.id === colData.id);
-    if (exists) {
-      updateColumns(columns.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
-    } else {
-      updateColumns([...columns, { ...colData, cards: [] }]);
-    }
+    if (exists) updateColumns(columns.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
+    else updateColumns([...columns, { ...colData, cards: [] }]);
     setColModal(null);
   };
 
@@ -1055,12 +1047,11 @@ if (!doneCol || doneCol.id === fromColId) return;
 
   return (
     <div>
-      {/* Toolbar */}
       <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 200 })} />
         <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 180 })}>
           <option value="all">Todos</option>
-          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name.split(" ")[0]}</option>)}
+          {members.map(m => <option key={m.id} value={m.id}>{m.name.split(" ")[0]}</option>)}
         </select>
         {(search || filterMember !== "all") && (
           <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}`, flexShrink: 0 }}>
@@ -1068,64 +1059,42 @@ if (!doneCol || doneCol.id === fromColId) return;
           </span>
         )}
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button
-            onClick={() => {
-              const firstColId = sortedCols[0]?.id;
-              if (!firstColId) { alert("Crie uma coluna primeiro."); return; }
-              setModal({ card: null, colId: firstColId });
-            }}
-            style={s.btn(T.accent)}>+ Card</button>
+          <button onClick={() => { const firstColId = sortedCols[0]?.id; if (!firstColId) return; setModal({ card: null, colId: firstColId }); }} style={s.btn(T.accent)}>+ Card</button>
           <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text })}>+ Coluna</button>
         </div>
       </div>
 
-      {/* Board */}
       <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
         {sortedCols.map(col => (
-          <div key={col.id}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => handleDrop(e, col.id)}
+          <div key={col.id} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, col.id)}
             style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
-                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>
-                  {col.cards.filter(filterCard).length}
-                </span>
+                <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>{col.cards.filter(filterCard).length}</span>
               </div>
               <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                 <button onClick={() => setColModal(col)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
                 <button onClick={() => handleDeleteCol(col.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
-                <button
-                  onClick={() => setModal({ card: null, colId: col.id })}
-                  style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+                <button onClick={() => setModal({ card: null, colId: col.id })} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
               </div>
             </div>
 
             {col.cards.filter(filterCard).map(card => (
-              <KanbanCard
-                key={card.id}
-                card={card}
-                colId={col.id}
-                members={members}
+              <KanbanCard key={card.id} card={card} colId={col.id} members={members}
                 onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                onDelete={handleDelete}
-                onComplete={handleComplete}
-              />
+                onDelete={handleDelete} onComplete={handleComplete} />
             ))}
 
             {col.cards.filter(filterCard).length === 0 && (
-              <div style={{ textAlign: "center", padding: "16px 0", color: T.textMuted, fontSize: 12 }}>
-                Arraste um card aqui
-              </div>
+              <div style={{ textAlign: "center", padding: "16px 0", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>
             )}
           </div>
         ))}
 
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
-          <button
-            onClick={() => setColModal({})}
+          <button onClick={() => setColModal({})}
             style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "12px 20px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}>
@@ -1140,13 +1109,10 @@ if (!doneCol || doneCol.id === fromColId) return;
           onNotify={onNotify} onManageTypes={() => setTypesModal(true)} />
       )}
       {colModal !== null && (
-        <ColumnModal col={colModal && Object.keys(colModal).length > 0 ? colModal : null}
-          onSave={handleSaveCol} onClose={() => setColModal(null)} />
+        <ColumnModal col={colModal && Object.keys(colModal).length > 0 ? colModal : null} onSave={handleSaveCol} onClose={() => setColModal(null)} />
       )}
       {typesModal && (
-        <ManageTypesModal types={taskTypes}
-          onSave={list => { updateTaskTypes(list); setTypesModal(false); }}
-          onClose={() => setTypesModal(false)} />
+        <ManageTypesModal types={taskTypes} onSave={list => { updateTaskTypes(list); setTypesModal(false); }} onClose={() => setTypesModal(false)} />
       )}
 
       <ToastContainer toasts={toasts} />
@@ -1160,12 +1126,10 @@ function UsersTab({ members, updateMembers, columns }) {
   const [form, setForm] = useState({});
 
   const allCards = columns.flatMap(c => c.cards);
-  const doneCards = columns.find(c => c.id === "done")?.cards || [];
-
   const stats = m => {
     const total = allCards.filter(c => toArr(c.members).includes(m.id)).length;
-    const done = doneCards.filter(c => toArr(c.members).includes(m.id)).length;
-    const pts = doneCards.filter(c => toArr(c.members).includes(m.id)).reduce((a, c) => a + (c.points || 0), 0);
+    const done  = allCards.filter(c => toArr(c.members).includes(m.id) && c.completed).length;
+    const pts   = allCards.filter(c => toArr(c.members).includes(m.id) && c.completed).reduce((a, c) => a + (c.points || 0), 0);
     return { total, done, pts };
   };
   const ranked = [...members].sort((a, b) => stats(b).pts - stats(a).pts);
@@ -1213,18 +1177,10 @@ function UsersTab({ members, updateMembers, columns }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setEditing(null)}>
           <div style={s.card({ padding: 24, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px #000000cc", maxHeight: "92vh", overflowY: "auto" })}>
             <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{editing === "new" ? "Novo Membro" : "Editar Perfil"}</h3>
-
-            {/* ── NEW: Photo uploader in edit modal ── */}
             <div style={{ marginBottom: 16 }}>
               <label style={s.label}>Foto de perfil</label>
-              <PhotoUploader
-                currentPhoto={form.photo || null}
-                color={form.color || MEMBER_COLORS[0]}
-                name={form.name || "?"}
-                onUpload={photo => setForm(f => ({ ...f, photo }))}
-              />
+              <PhotoUploader currentPhoto={form.photo || null} color={form.color || MEMBER_COLORS[0]} name={form.name || "?"} onUpload={photo => setForm(f => ({ ...f, photo }))} />
             </div>
-
             {[["Nome", "name"], ["Cargo", "role"]].map(([l, k]) => (
               <div key={k} style={{ marginBottom: 12 }}>
                 <label style={s.label}>{l}</label>
@@ -1241,9 +1197,7 @@ function UsersTab({ members, updateMembers, columns }) {
               <button onClick={() => setEditing(null)} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
               <button onClick={() => {
                 if (!form.name?.trim()) return;
-                const pwdHash = form.newPassword
-                  ? hashPwd(form.newPassword)
-                  : (members.find(m => m.id === editing)?.passwordHash || hashPwd("1234"));
+                const pwdHash = form.newPassword ? hashPwd(form.newPassword) : (members.find(m => m.id === editing)?.passwordHash || hashPwd("1234"));
                 const data = { ...form, avatar: initials(form.name || "?"), passwordHash: pwdHash };
                 delete data.newPassword;
                 if (editing === "new") updateMembers([...members, { ...data, id: uid() }]);
@@ -1263,17 +1217,13 @@ function AnalyticsTab({ columns, members }) {
   const [filter, setFilter] = useState("all");
   const today = new Date().toISOString().slice(0, 10);
 
-  const allCards = columns.flatMap(c => ({ col: c, cards: c.cards })).flatMap(({ col, cards }) =>
-    cards.map(card => ({ ...card, colId: col.id, colTitle: col.title }))
+  const allCards = columns.flatMap(c =>
+    c.cards.map(card => ({ ...card, colId: c.id, colTitle: c.title }))
   );
-  const doneCards = columns.find(c => c.id === "done")?.cards || [];
+  const completedCards = allCards.filter(c => c.completed);
+  const overdueCards = allCards.filter(card => !card.completed && card.due && card.due < today);
 
-  // ── NEW: Overdue = cards not in "done" with due < today ──
-  const overdueCards = allCards.filter(card =>
-    card.colId !== "done" && card.due && card.due < today
-  );
-
-  const filtered = filter === "all" ? doneCards : doneCards.filter(c => toArr(c.members).includes(filter));
+  const filtered = filter === "all" ? completedCards : completedCards.filter(c => toArr(c.members).includes(filter));
 
   const typeCounts = {};
   filtered.forEach(c => { typeCounts[c.type] = (typeCounts[c.type] || 0) + 1; });
@@ -1281,7 +1231,7 @@ function AnalyticsTab({ columns, members }) {
   const maxT = Math.max(...topTypes.map(([, v]) => v), 1);
 
   const mStats = members.map(m => {
-    const done = doneCards.filter(c => toArr(c.members).includes(m.id));
+    const done = completedCards.filter(c => toArr(c.members).includes(m.id));
     const overdue = overdueCards.filter(c => toArr(c.members).includes(m.id)).length;
     return { ...m, done: done.length, pts: done.reduce((a, c) => a + (c.points || 0), 0), total: allCards.filter(c => toArr(c.members).includes(m.id)).length, overdue };
   }).sort((a, b) => b.pts - a.pts);
@@ -1292,14 +1242,13 @@ function AnalyticsTab({ columns, members }) {
 
   const kpis = [
     ["Total", allCards.length, T.blue, "📋"],
-    ["Concluídas", filtered.length, T.green, "✅"],
-    ["Taxa", `${Math.round((doneCards.length / (allCards.length || 1)) * 100)}%`, T.teal, "📈"],
+    ["Concluídas", completedCards.length, T.green, "✅"],
+    ["Taxa", `${Math.round((completedCards.length / (allCards.length || 1)) * 100)}%`, T.teal, "📈"],
     ["Pontos", filtered.reduce((a, c) => a + (c.points || 0), 0), T.amber, "⭐"],
   ];
 
   const daysDiff = (due) => {
-    const d = new Date(due);
-    const t = new Date(today);
+    const d = new Date(due), t = new Date(today);
     return Math.floor((t - d) / (1000 * 60 * 60 * 24));
   };
 
@@ -1309,11 +1258,10 @@ function AnalyticsTab({ columns, members }) {
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Análise de Produção</h2>
         <select value={filter} onChange={e => setFilter(e.target.value)} style={s.select({ maxWidth: 200 })}>
           <option value="all">Todos os membros</option>
-          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
+          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </div>
 
-      {/* KPIs */}
       <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
         {kpis.map(([l, v, c, icon]) => (
           <div key={l} style={s.card({ padding: "14px 16px" })}>
@@ -1324,9 +1272,8 @@ function AnalyticsTab({ columns, members }) {
         ))}
       </div>
 
-      {/* ── NEW: Overdue cards section ── */}
       {overdueCards.length > 0 && (
-        <div style={{ ...s.card({ padding: 18, marginBottom: 16, border: `1px solid ${T.red}44` }) }}>
+        <div style={s.card({ padding: 18, marginBottom: 16, border: `1px solid ${T.red}44` })}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <div style={{ background: T.redDim, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 16 }}>⚠️</span>
@@ -1347,18 +1294,12 @@ function AnalyticsTab({ columns, members }) {
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={s.badge(T.accent)}>{card.type}</span>
                       <span style={s.badge(pri.color)}>{pri.label}</span>
-                      <span style={{ ...s.badge(T.red), display: "flex", alignItems: "center", gap: 3 }}>
-                        📅 {fmtDate(card.due)} · {dias}d atraso
-                      </span>
+                      <span style={{ ...s.badge(T.red) }}>📅 {fmtDate(card.due)} · {dias}d atraso</span>
                       <span style={{ fontSize: 10, color: T.textMuted }}>📌 {card.colTitle}</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", flexShrink: 0 }}>
-                    {cardMembers.map((m, i) => (
-                      <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}>
-                        <Avatar member={m} size={26} />
-                      </div>
-                    ))}
+                    {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}><Avatar member={m} size={26} /></div>)}
                   </div>
                 </div>
               );
@@ -1368,13 +1309,12 @@ function AnalyticsTab({ columns, members }) {
       )}
 
       {overdueCards.length === 0 && (
-        <div style={{ ...s.card({ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }) }}>
+        <div style={s.card({ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 })}>
           <span style={{ fontSize: 20 }}>✅</span>
           <span style={{ fontSize: 13, color: T.green, fontWeight: 600 }}>Nenhuma tarefa atrasada!</span>
         </div>
       )}
 
-      {/* Charts */}
       <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={s.card({ padding: 18 })}>
           <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Tipos mais realizados</h3>
@@ -1415,7 +1355,6 @@ function AnalyticsTab({ columns, members }) {
         </div>
       </div>
 
-      {/* Priority grid */}
       <div style={s.card({ padding: 18 })}>
         <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Distribuição por prioridade (concluídas)</h3>
         <div className="pri-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
@@ -1443,8 +1382,8 @@ function CSVGuide({ onClose }) {
         </div>
         {[
           { plat: "📸 Instagram", color: T.pink, steps: ["Acesse o Meta Business Suite (business.facebook.com)", "Vá em Insights → Conteúdo", "Clique em Exportar dados", "Selecione o período e formato CSV"] },
-          { plat: "🎵 TikTok", color: T.red, steps: ["Acesse o TikTok Studio (studio.tiktok.com)", "Vá em Análises", "Selecione o período", "Clique em Exportar dados → CSV"] },
-          { plat: "▶️ YouTube", color: T.red, steps: ["Acesse o YouTube Studio (studio.youtube.com)", "Vá em Análises", "Escolha o período", "3 pontos → Exportar relatório → CSV"] },
+          { plat: "🎵 TikTok",    color: T.red,  steps: ["Acesse o TikTok Studio (studio.tiktok.com)", "Vá em Análises", "Selecione o período", "Clique em Exportar dados → CSV"] },
+          { plat: "▶️ YouTube",   color: T.red,  steps: ["Acesse o YouTube Studio (studio.youtube.com)", "Vá em Análises", "Escolha o período", "3 pontos → Exportar relatório → CSV"] },
         ].map(({ plat, color, steps }) => (
           <div key={plat} style={{ marginBottom: 18 }}>
             <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color }}>{plat}</h3>
@@ -1461,7 +1400,7 @@ function CSVGuide({ onClose }) {
 
 /* ─── SOCIAL TAB ─────────────────────────────────────────── */
 const PLATFORM_COLORS = { instagram: "#E1306C", tiktok: "#ff2d55", youtube: "#FF0000" };
-const PLATFORM_ICONS = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
+const PLATFORM_ICONS  = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
 
 function SocialTab({ data, updateData }) {
   const [platform, setPlatform] = useState("instagram");
@@ -1473,12 +1412,12 @@ function SocialTab({ data, updateData }) {
     if (lines.length < 2) return [];
     const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
     const findCol = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-    const iTitle = findCol("título","title","nome","name","video");
-    const iViews = findCol("view","visualiz","impres");
-    const iLikes = findCol("like","curtida");
+    const iTitle    = findCol("título","title","nome","name","video");
+    const iViews    = findCol("view","visualiz","impres");
+    const iLikes    = findCol("like","curtida");
     const iComments = findCol("comment","comentar");
-    const iShares = findCol("share","compartilh");
-    const iDate = findCol("date","data");
+    const iShares   = findCol("share","compartilh");
+    const iDate     = findCol("date","data");
     return lines.slice(1).map((line, idx) => {
       const cols = line.split(",").map(c => c.trim().replace(/"/g, ""));
       const num = i => i >= 0 ? (parseInt(cols[i]) || 0) : 0;
@@ -1507,7 +1446,7 @@ function SocialTab({ data, updateData }) {
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 130 })}>
-            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv} style={{ background: T.bg3 }}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
+            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
           </select>
           <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Exportar</button>
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
@@ -1679,12 +1618,12 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ ...s.input(), marginBottom: 12 }} />
             <label style={s.label}>Tipo</label>
             <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ ...s.select(), marginBottom: 12 }}>
-              {taskTypes.map(t => <option key={t} style={{ background: T.bg3 }}>{t}</option>)}
+              {taskTypes.map(t => <option key={t}>{t}</option>)}
             </select>
             <label style={s.label}>Responsável</label>
             <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} style={{ ...s.select(), marginBottom: 20 }}>
-              <option value="" style={{ background: T.bg3 }}>Selecionar...</option>
-              {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
+              <option value="">Selecionar...</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={() => setAddModal(null)} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
@@ -1704,15 +1643,15 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
 
 /* ─── APP ────────────────────────────────────────────────── */
 export default function App() {
-  const [members, setMembers] = useState([]);
-  const [columns, setColumns] = useState([]);
-  const [events, setEvents] = useState([]);
+  const [members, setMembers]     = useState([]);
+  const [columns, setColumns]     = useState([]);
+  const [events, setEvents]       = useState([]);
   const [socialData, setSocialData] = useState({});
   const [taskTypes, setTaskTypes] = useState(DEFAULT_TASK_TYPES);
   const [currentUser, setCurrentUser] = useState(null);
-  const [tab, setTab] = useState("board");
-  const [notifs, setNotifs] = useState({});
-  const [dbReady, setDbReady] = useState(false);
+  const [tab, setTab]             = useState("board");
+  const [notifs, setNotifs]       = useState({});
+  const [dbReady, setDbReady]     = useState(false);
 
   useEffect(() => {
     if (!dbReady || currentUser) return;
@@ -1726,13 +1665,7 @@ export default function App() {
   useEffect(() => {
     onValue(ref(db, '/'), snap => {
       if (!snap.exists()) {
-        set(ref(db, '/'), {
-          members: INIT_MEMBERS,
-          columns: INIT_COLUMNS,
-          events: INIT_EVENTS,
-          social: INIT_SOCIAL,
-          taskTypes: DEFAULT_TASK_TYPES
-        });
+        set(ref(db, '/'), { members: INIT_MEMBERS, columns: INIT_COLUMNS, events: INIT_EVENTS, social: INIT_SOCIAL, taskTypes: DEFAULT_TASK_TYPES });
       }
       setDbReady(true);
     }, { onlyOnce: true });
@@ -1762,7 +1695,7 @@ export default function App() {
     setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
   }, []);
 
-  const myNotifs  = notifs[currentUser?.id] || [];
+  const myNotifs    = notifs[currentUser?.id] || [];
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
@@ -1786,14 +1719,18 @@ export default function App() {
     <>
       <GlobalStyles />
       <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
-        {/* HEADER */}
+
+        {/* ── HEADER ── */}
         <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 12px" }}>
+
+            {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", flexShrink: 0 }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>SM</div>
-              <span style={{ fontWeight: 900, fontSize: 15, color: T.text, letterSpacing: -0.5, display: "none" }} className="nav-label">Sistema Marketing</span>
             </div>
-            <nav className="header-nav" style={{ display: "flex", flex: 1, justifyContent: "center" }}>
+
+            {/* Nav */}
+            <nav style={{ display: "flex", flex: 1, justifyContent: "center" }}>
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 10px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s", whiteSpace: "nowrap" }}>
                   <span style={{ fontSize: 16 }}>{t.icon}</span>
@@ -1801,17 +1738,25 @@ export default function App() {
                 </button>
               ))}
             </nav>
-            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+
+            {/* Right: apenas sino + perfil + sair */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
               <NotifBell notifs={myNotifs} onClear={clearNotifs} />
-              <div className="header-user-info" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Avatar member={currentUser} size={30} />
-                <div>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
+
+              {/* Perfil com nome e cargo */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Avatar member={currentUser} size={32} />
+                <div style={{ lineHeight: 1.2 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
                   <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{currentUser.role}</p>
                 </div>
               </div>
-              <Avatar member={currentUser} size={28} style={{ display: "flex" }} />
-              <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: T.textMuted, fontSize: 11, fontFamily: "inherit" }}>Sair</button>
+
+              <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.textMuted, fontSize: 12, fontFamily: "inherit", transition: "border-color .15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = T.red}
+                onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
+                Sair
+              </button>
             </div>
           </div>
         </div>
