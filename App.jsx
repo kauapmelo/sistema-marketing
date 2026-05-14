@@ -14,6 +14,27 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 
+/* ─── GLOBAL DARK STYLES ─────────────────────────────────── */
+const GLOBAL_STYLE = `
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { background: #0a0a0f; margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #111118; }
+  ::-webkit-scrollbar-thumb { background: #2e2e3a; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #44445a; }
+  input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator {
+    color-scheme: dark;
+    background: #22222c;
+    border-color: #2e2e3a;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+  }
+  input[type="checkbox"] { accent-color: #7c6af7; }
+  select option { background: #22222c; color: #f0f0f5; }
+`;
+
 /* ─── THEME ─────────────────────────────────────────────── */
 const T = {
   bg0: "#0a0a0f", bg1: "#111118", bg2: "#18181f", bg3: "#22222c",
@@ -131,16 +152,52 @@ const s = {
     padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13,
     fontFamily: "inherit", transition: "opacity .15s", ...extra
   }),
+  // FIX: todos os inputs agora têm fundo escuro explícito e appearance: none nos selects
   input: (extra = {}) => ({
-    background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 8,
-    color: T.text, padding: "8px 12px", fontSize: 14, width: "100%",
-    boxSizing: "border-box", fontFamily: "inherit", outline: "none", ...extra
+    background: T.bg3,
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    color: T.text,
+    padding: "8px 12px",
+    fontSize: 14,
+    width: "100%",
+    boxSizing: "border-box",
+    fontFamily: "inherit",
+    outline: "none",
+    colorScheme: "dark",        // FIX: garante que date pickers e selects fiquem escuros
+    WebkitAppearance: "none",   // FIX: remove estilo nativo branco em selects (Safari/Chrome)
+    appearance: "none",
+    ...extra
+  }),
+  select: (extra = {}) => ({
+    background: T.bg3,
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    color: T.text,
+    padding: "8px 32px 8px 12px",
+    fontSize: 14,
+    width: "100%",
+    boxSizing: "border-box",
+    fontFamily: "inherit",
+    outline: "none",
+    colorScheme: "dark",
+    WebkitAppearance: "none",
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 10px center",
+    cursor: "pointer",
+    ...extra
   }),
   label: { fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 },
   badge: (color) => ({ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: color + "22", color, letterSpacing: .5 }),
 };
 
 /* ─── COMPONENTS ─────────────────────────────────────────── */
+function GlobalStyles() {
+  return <style>{GLOBAL_STYLE}</style>;
+}
+
 function Avatar({ member, size = 28, style = {} }) {
   return (
     <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", ...style }}>
@@ -464,7 +521,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
   const removeCheck = id => setF("checklist", form.checklist.filter(c => c.id !== id));
 
   const doneChecks = form.checklist.filter(c => c.done).length;
-  const pri = getPriority(form.priority);
 
   const handleSave = () => {
     if (!form.title.trim()) return;
@@ -481,7 +537,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               value={form.title}
               onChange={e => setF("title", e.target.value)}
               placeholder="Título do card..."
-              style={s.input({ fontSize: 18, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1 })}
+              style={s.input({ fontSize: 18, fontWeight: 700, background: "transparent", border: "none", padding: 0, flex: 1, width: "auto" })}
               autoFocus
             />
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 22, padding: 0 }}>×</button>
@@ -497,7 +553,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               onChange={e => setF("desc", e.target.value)}
               placeholder="Descrição..."
               rows={3}
-              style={s.input({ resize: "vertical", marginBottom: 20, fontFamily: "inherit", lineHeight: 1.5 })}
+              style={{ ...s.input({ resize: "vertical", marginBottom: 20, fontFamily: "inherit", lineHeight: 1.5 }), WebkitAppearance: "none", appearance: "auto" }}
             />
 
             <label style={s.label}>☑️ Checklist {form.checklist.length > 0 && `(${doneChecks}/${form.checklist.length})`}</label>
@@ -514,7 +570,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               </div>
             ))}
             <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 20 }}>
-              <input value={checkText} onChange={e => setCheckText(e.target.value)} onKeyDown={e => e.key === "Enter" && addCheck()} placeholder="Novo item..." style={s.input({ flex: 1 })} />
+              <input value={checkText} onChange={e => setCheckText(e.target.value)} onKeyDown={e => e.key === "Enter" && addCheck()} placeholder="Novo item..." style={s.input({ flex: 1, width: "auto" })} />
               <button onClick={addCheck} style={s.btn(T.bg4, { color: T.text })}>+</button>
             </div>
 
@@ -531,20 +587,21 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
               ))}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === "Enter" && addComment()} placeholder="Comentário..." style={s.input({ flex: 1 })} />
+              <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === "Enter" && addComment()} placeholder="Comentário..." style={s.input({ flex: 1, width: "auto" })} />
               <button onClick={addComment} style={s.btn(T.accent)}>Enviar</button>
             </div>
           </div>
 
           {/* RIGHT */}
-          <div style={{ width: 220, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ width: 220, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16, background: T.bg2 }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ ...s.label, marginBottom: 0 }}>Tipo</label>
                 <button onClick={onManageTypes} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 11, fontWeight: 700, padding: 0 }}>+ Gerenciar</button>
               </div>
-              <select value={form.type} onChange={e => setF("type", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 13 })}>
-                {taskTypes.map(t => <option key={t}>{t}</option>)}
+              {/* FIX: usando s.select() em vez de s.input() */}
+              <select value={form.type} onChange={e => setF("type", e.target.value)} style={s.select({ padding: "6px 32px 6px 10px", fontSize: 13 })}>
+                {taskTypes.map(t => <option key={t} style={{ background: T.bg3, color: T.text }}>{t}</option>)}
               </select>
             </div>
 
@@ -563,7 +620,9 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
             <div>
               <label style={s.label}>Prazo</label>
-              <input type="date" value={form.due} onChange={e => setF("due", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark" })} />
+              {/* FIX: colorScheme dark no input date */}
+              <input type="date" value={form.due} onChange={e => setF("due", e.target.value)}
+                style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark", width: "100%" })} />
             </div>
 
             <div>
@@ -581,7 +640,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
             <div>
               <label style={s.label}>Menções</label>
               <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-                <input value={mention} onChange={e => setMention(e.target.value)} onKeyDown={e => e.key === "Enter" && addMention()} placeholder="@nome" style={s.input({ flex: 1, padding: "5px 8px", fontSize: 12 })} />
+                <input value={mention} onChange={e => setMention(e.target.value)} onKeyDown={e => e.key === "Enter" && addMention()} placeholder="@nome" style={s.input({ flex: 1, padding: "5px 8px", fontSize: 12, width: "auto" })} />
                 <button onClick={addMention} style={s.btn(T.bg4, { color: T.text, padding: "5px 10px" })}>+</button>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -611,13 +670,15 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
   const checklist = toArr(card.checklist);
   const done = checklist.filter(c => c.done).length;
   const pri = getPriority(card.priority);
+  const today = new Date().toISOString().slice(0, 10);
+  const isOverdue = card.due && card.due < today;
 
   return (
     <div
       draggable
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
-      style={{ background: T.bg3, borderRadius: 10, padding: "12px 14px", border: `1px solid ${drag ? T.accent : T.border}`, cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s" }}>
+      style={{ background: T.bg3, borderRadius: 10, padding: "12px 14px", border: `1px solid ${drag ? T.accent : isOverdue ? T.red + "55" : T.border}`, cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: T.text, lineHeight: 1.4, flex: 1 }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2 }}>
@@ -636,7 +697,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {checklist.length > 0 && <span style={{ fontSize: 11, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
           {toArr(card.comments).length > 0 && <span style={{ fontSize: 11, color: T.textMuted }}>💬 {toArr(card.comments).length}</span>}
-          {card.due && <span style={{ fontSize: 11, color: T.textMuted }}>📅 {fmtDate(card.due)}</span>}
+          {card.due && <span style={{ fontSize: 11, color: isOverdue ? T.red : T.textMuted }}>📅 {fmtDate(card.due)}</span>}
           <span style={{ fontSize: 11, fontWeight: 700, color: pri.color }}>⭐{card.points}</span>
         </div>
       </div>
@@ -682,8 +743,8 @@ function ColumnModal({ col, onSave, onClose }) {
 
 /* ─── BOARD TAB ──────────────────────────────────────────── */
 function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes }) {
-  const [modal, setModal] = useState(null);   // { card: Card|null, colId: string }
-  const [colModal, setColModal] = useState(null); // col object or {} for new
+  const [modal, setModal] = useState(null);
+  const [colModal, setColModal] = useState(null);
   const [typesModal, setTypesModal] = useState(false);
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
@@ -710,19 +771,15 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         return col;
       });
       updateColumns(newCols);
-    } catch (err) {
-      console.error("Drop error:", err);
-    }
+    } catch (err) { console.error("Drop error:", err); }
   };
 
   const handleSave = (form, colId) => {
     const newCols = columns.map(col => {
       if (col.id !== colId) return col;
       if (form.id) {
-        // Edit existing card
         return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
       } else {
-        // Create new card
         const newCard = { ...form, id: uid() };
         toArr(newCard.members).forEach(mid => {
           if (mid !== currentUser?.id) {
@@ -763,15 +820,25 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     return true;
   };
 
+  // MELHORIA: contagem total de cards visíveis
+  const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
+
   return (
     <div>
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 220 })} />
-        <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.input({ maxWidth: 180 })}>
+        {/* FIX: usando s.select() */}
+        <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 200 })}>
           <option value="all">Todos os membros</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
         </select>
+        {/* MELHORIA: contador de cards filtrados */}
+        {(search || filterMember !== "all") && (
+          <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}` }}>
+            {totalVisible} card{totalVisible !== 1 ? "s" : ""}
+          </span>
+        )}
         <button
           onClick={() => {
             const firstColId = sortedCols[0]?.id;
@@ -809,11 +876,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
             {/* Cards */}
             {col.cards.filter(filterCard).map(card => (
-              <KanbanCard
-                key={card.id}
-                card={card}
-                colId={col.id}
-                members={members}
+              <KanbanCard key={card.id} card={card} colId={col.id} members={members}
                 onOpen={(c, cid) => setModal({ card: c, colId: cid })}
                 onDelete={handleDelete}
               />
@@ -841,31 +904,18 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
       {/* Modals */}
       {modal && (
-        <CardModal
-          card={modal.card}
-          colId={modal.colId}
-          members={members}
-          currentUser={currentUser}
-          taskTypes={taskTypes}
-          onSave={handleSave}
-          onClose={() => setModal(null)}
-          onNotify={onNotify}
-          onManageTypes={() => setTypesModal(true)}
-        />
+        <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser}
+          taskTypes={taskTypes} onSave={handleSave} onClose={() => setModal(null)}
+          onNotify={onNotify} onManageTypes={() => setTypesModal(true)} />
       )}
       {colModal !== null && (
-        <ColumnModal
-          col={colModal && Object.keys(colModal).length > 0 ? colModal : null}
-          onSave={handleSaveCol}
-          onClose={() => setColModal(null)}
-        />
+        <ColumnModal col={colModal && Object.keys(colModal).length > 0 ? colModal : null}
+          onSave={handleSaveCol} onClose={() => setColModal(null)} />
       )}
       {typesModal && (
-        <ManageTypesModal
-          types={taskTypes}
+        <ManageTypesModal types={taskTypes}
           onSave={list => { updateTaskTypes(list); setTypesModal(false); }}
-          onClose={() => setTypesModal(false)}
-        />
+          onClose={() => setTypesModal(false)} />
       )}
     </div>
   );
@@ -995,9 +1045,10 @@ function AnalyticsTab({ columns, members }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Produção</h2>
-        <select value={filter} onChange={e => setFilter(e.target.value)} style={s.input({ maxWidth: 200 })}>
+        {/* FIX: usando s.select() */}
+        <select value={filter} onChange={e => setFilter(e.target.value)} style={s.select({ maxWidth: 220 })}>
           <option value="all">Todos os membros</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
         </select>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
@@ -1135,8 +1186,9 @@ function SocialTab({ data, updateData }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.input({ maxWidth: 150 })}>
-            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
+          {/* FIX: usando s.select() */}
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 150 })}>
+            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv} style={{ background: T.bg3 }}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
           </select>
           <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Como exportar</button>
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
@@ -1304,13 +1356,14 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             <label style={s.label}>Título</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ ...s.input(), marginBottom: 12 }} />
             <label style={s.label}>Tipo</label>
-            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ ...s.input(), marginBottom: 12 }}>
-              {taskTypes.map(t => <option key={t}>{t}</option>)}
+            {/* FIX: usando s.select() */}
+            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ ...s.select(), marginBottom: 12 }}>
+              {taskTypes.map(t => <option key={t} style={{ background: T.bg3 }}>{t}</option>)}
             </select>
             <label style={s.label}>Responsável</label>
-            <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} style={{ ...s.input(), marginBottom: 20 }}>
-              <option value="">Selecionar...</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} style={{ ...s.select(), marginBottom: 20 }}>
+              <option value="" style={{ background: T.bg3 }}>Selecionar...</option>
+              {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
             </select>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={() => setAddModal(null)} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
@@ -1340,7 +1393,6 @@ export default function App() {
   const [notifs, setNotifs] = useState({});
   const [dbReady, setDbReady] = useState(false);
 
-  // Auto-login when members load
   useEffect(() => {
     if (!dbReady || currentUser) return;
     const savedId = localStorage.getItem(REMEMBER_KEY);
@@ -1351,7 +1403,6 @@ export default function App() {
   }, [members, dbReady]);
 
   useEffect(() => {
-    // Initialize DB if empty
     onValue(ref(db, '/'), snap => {
       if (!snap.exists()) {
         set(ref(db, '/'), {
@@ -1381,16 +1432,16 @@ export default function App() {
   const updateSocial    = v => set(ref(db, 'social'), v);
   const updateTaskTypes = v => set(ref(db, 'taskTypes'), v);
 
-  const onLogin = member => setCurrentUser(member);
+  const onLogin    = member => setCurrentUser(member);
   const onRegister = member => updateMembers([...members, member]);
-  const onLogout = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
+  const onLogout   = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
 
   const onNotify = useCallback((memberId, text) => {
     const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
     setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
   }, []);
 
-  const myNotifs = notifs[currentUser?.id] || [];
+  const myNotifs  = notifs[currentUser?.id] || [];
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
@@ -1402,47 +1453,55 @@ export default function App() {
   ];
 
   if (!currentUser) {
-    return <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />;
+    return (
+      <>
+        <GlobalStyles />
+        <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />
+      </>
+    );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
-      {/* HEADER */}
-      <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>SM</div>
-            <span style={{ fontWeight: 900, fontSize: 18, color: T.text, letterSpacing: -0.5 }}>Sistema Marketing</span>
-          </div>
-          <nav style={{ display: "flex" }}>
-            {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "14px 14px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s" }}>
-                <span>{t.icon}</span>{t.label}
-              </button>
-            ))}
-          </nav>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <NotifBell notifs={myNotifs} onClear={clearNotifs} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Avatar member={currentUser} size={32} />
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
-                <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{currentUser.role}</p>
-              </div>
+    <>
+      <GlobalStyles />
+      <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
+        {/* HEADER */}
+        <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>SM</div>
+              <span style={{ fontWeight: 900, fontSize: 18, color: T.text, letterSpacing: -0.5 }}>Sistema Marketing</span>
             </div>
-            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.textMuted, fontSize: 12, fontFamily: "inherit" }}>Sair</button>
+            <nav style={{ display: "flex" }}>
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "14px 14px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s" }}>
+                  <span>{t.icon}</span>{t.label}
+                </button>
+              ))}
+            </nav>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <NotifBell notifs={myNotifs} onClear={clearNotifs} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Avatar member={currentUser} size={32} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{currentUser.name.split(" ")[0]}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{currentUser.role}</p>
+                </div>
+              </div>
+              <button onClick={onLogout} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: T.textMuted, fontSize: 12, fontFamily: "inherit" }}>Sair</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* CONTENT — sem borda branca, padding apenas lateral */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 24px 48px" }}>
-        {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
-        {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
-        {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
-        {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
-        {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} />}
+        {/* CONTENT */}
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 24px 48px" }}>
+          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} />}
+          {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
+          {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
+          {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
+          {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} />}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
