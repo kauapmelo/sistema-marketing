@@ -42,6 +42,11 @@ const GLOBAL_STYLE = `
     from { opacity: 1; transform: translateY(0)   scale(1);    }
     to   { opacity: 0; transform: translateY(20px) scale(.95); }
   }
+  @keyframes completePop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
 
   /* ── MOBILE RESPONSIVE ── */
   @media (max-width: 600px) {
@@ -126,10 +131,10 @@ const normalizeCols = (val) => {
 
 /* ─── INITIAL DATA ───────────────────────────────────────── */
 const INIT_MEMBERS = [
-  { id: "m1", name: "Ana Silva",    avatar: "AS", color: "#7c6af7", role: "Designer",    passwordHash: hashPwd("1234") },
-  { id: "m2", name: "Bruno Costa",  avatar: "BC", color: "#22c55e", role: "Copywriter",  passwordHash: hashPwd("1234") },
-  { id: "m3", name: "Carla Mendes", avatar: "CM", color: "#f59e0b", role: "Social Media", passwordHash: hashPwd("1234") },
-  { id: "m4", name: "Diego Ramos",  avatar: "DR", color: "#3b82f6", role: "Gestor",       passwordHash: hashPwd("1234") },
+  { id: "m1", name: "Ana Silva",    avatar: "AS", color: "#7c6af7", role: "Designer",    passwordHash: hashPwd("1234"), photo: null },
+  { id: "m2", name: "Bruno Costa",  avatar: "BC", color: "#22c55e", role: "Copywriter",  passwordHash: hashPwd("1234"), photo: null },
+  { id: "m3", name: "Carla Mendes", avatar: "CM", color: "#f59e0b", role: "Social Media", passwordHash: hashPwd("1234"), photo: null },
+  { id: "m4", name: "Diego Ramos",  avatar: "DR", color: "#3b82f6", role: "Gestor",       passwordHash: hashPwd("1234"), photo: null },
 ];
 
 const INIT_COLUMNS = [
@@ -226,7 +231,15 @@ function GlobalStyles() {
   return <style>{GLOBAL_STYLE}</style>;
 }
 
+/* ─── FIX: Avatar now supports photo ────────────────────── */
 function Avatar({ member, size = 28, style = {} }) {
+  if (member.photo) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", ...style }}>
+        <img src={member.photo} alt={member.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+    );
+  }
   return (
     <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", ...style }}>
       {member.avatar || initials(member.name)}
@@ -278,7 +291,6 @@ function Toast({ toast }) {
   );
 }
 
-/* ─── TOAST CONTAINER ────────────────────────────────────── */
 function ToastContainer({ toasts }) {
   return (
     <div style={{
@@ -331,12 +343,59 @@ function NotifBell({ notifs, onClear }) {
   );
 }
 
+/* ─── PHOTO UPLOAD HELPER ────────────────────────────────── */
+function PhotoUploader({ currentPhoto, color, name, onUpload }) {
+  const inputRef = useRef();
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert("Foto muito grande! Máximo 2MB."); return; }
+    const reader = new FileReader();
+    reader.onload = ev => onUpload(ev.target.result);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+      <div
+        onClick={() => inputRef.current.click()}
+        style={{ width: 80, height: 80, borderRadius: "50%", overflow: "hidden", cursor: "pointer", position: "relative", border: `3px solid ${T.accent}`, flexShrink: 0 }}
+      >
+        {currentPhoto
+          ? <img src={currentPhoto} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ width: "100%", height: "100%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#fff" }}>{initials(name || "?")}</div>
+        }
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .2s" }}
+          onMouseEnter={e => e.currentTarget.style.opacity = 1}
+          onMouseLeave={e => e.currentTarget.style.opacity = 0}
+        >
+          <span style={{ fontSize: 22 }}>📷</span>
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="button" onClick={() => inputRef.current.click()} style={s.btn(T.bg4, { color: T.text, fontSize: 11, padding: "5px 10px" })}>
+          {currentPhoto ? "Trocar foto" : "Adicionar foto"}
+        </button>
+        {currentPhoto && (
+          <button type="button" onClick={() => onUpload(null)} style={s.btn(T.redDim, { color: T.red, fontSize: 11, padding: "5px 10px" })}>
+            Remover
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── LOGIN SCREEN ───────────────────────────────────────── */
 function LoginScreen({ members, onLogin, onRegister }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [role, setRole] = useState("Social Media");
   const [color, setColor] = useState(MEMBER_COLORS[0]);
+  const [photo, setPhoto] = useState(null);
   const [selId, setSelId] = useState(null);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -365,12 +424,13 @@ function LoginScreen({ members, onLogin, onRegister }) {
       name: name.trim(),
       avatar: initials(name.trim()),
       color,
+      photo: photo || null,
       role: role.trim() || "Membro",
       passwordHash: hashPwd(newPassword)
     };
     onRegister(newMember);
     setMode("login");
-    setName(""); setNewPassword(""); setError("");
+    setName(""); setNewPassword(""); setPhoto(null); setError("");
   };
 
   return (
@@ -450,6 +510,12 @@ function LoginScreen({ members, onLogin, onRegister }) {
           </div>
         ) : (
           <div>
+            {/* Photo uploader on register */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={s.label}>Foto de perfil (opcional)</label>
+              <PhotoUploader currentPhoto={photo} color={color} name={name} onUpload={setPhoto} />
+            </div>
+
             <label style={s.label}>Nome completo</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Maria Souza" style={{ ...s.input(), marginBottom: 14 }} />
 
@@ -626,7 +692,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
           </div>
         </div>
 
-        {/* Body: column on mobile, row on desktop */}
         <div className="card-modal-body" style={{ display: "flex", flexDirection: "row" }}>
           {/* LEFT */}
           <div style={{ flex: 1, padding: "16px 20px", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
@@ -747,6 +812,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 /* ─── KANBAN CARD ────────────────────────────────────────── */
 function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const [drag, setDrag] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
   const checklist = toArr(card.checklist);
   const done = checklist.filter(c => c.done).length;
@@ -755,6 +821,17 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const isOverdue = card.due && card.due < today;
   const isDoneCol = colId === "done";
 
+  /* ── FIX: handle complete with animation ── */
+  const handleComplete = (e) => {
+    e.stopPropagation();
+    if (completing) return;
+    setCompleting(true);
+    // slight delay so animation shows before card disappears
+    setTimeout(() => {
+      onComplete(card, colId);
+    }, 320);
+  };
+
   return (
     <div
       draggable
@@ -762,8 +839,10 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
       onDragEnd={() => setDrag(false)}
       style={{
         background: T.bg3, borderRadius: 10, padding: "12px 12px",
-        border: `1px solid ${drag ? T.accent : isOverdue ? T.red + "55" : T.border}`,
-        cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s"
+        border: `1px solid ${completing ? T.green : drag ? T.accent : isOverdue ? T.red + "55" : T.border}`,
+        cursor: "grab", opacity: drag ? .5 : completing ? .7 : 1,
+        marginBottom: 8, transition: "border .15s, opacity .2s",
+        animation: completing ? "completePop .32s ease" : "none",
       }}>
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
@@ -772,12 +851,13 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
           {!isDoneCol && (
             <button
               title="Concluir tarefa"
-              onClick={e => { e.stopPropagation(); onComplete(card, colId); }}
+              onClick={handleComplete}
+              disabled={completing}
               style={{
-                background: T.green + "18",
+                background: completing ? T.green + "40" : T.green + "18",
                 border: `1px solid ${T.green}44`,
                 borderRadius: 6,
-                cursor: "pointer",
+                cursor: completing ? "default" : "pointer",
                 color: T.green,
                 fontSize: 12,
                 padding: "2px 5px",
@@ -786,8 +866,6 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
                 lineHeight: 1.4,
                 transition: "background .15s",
               }}
-              onMouseEnter={e => e.currentTarget.style.background = T.green + "35"}
-              onMouseLeave={e => e.currentTarget.style.background = T.green + "18"}
             >
               ✅
             </button>
@@ -870,16 +948,27 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+  /* ── FIX: handleComplete now correctly moves card to "done" col ── */
   const handleComplete = useCallback((card, fromColId) => {
-    const doneCol = columns.find(c => c.id === "done");
-    if (!doneCol) { alert("Coluna 'Concluído' não encontrada."); return; }
     if (fromColId === "done") return;
 
+    // Find the done column — first look by id, then by title
+    const doneCol = columns.find(c => c.id === "done") || columns.find(c => c.title.toLowerCase().includes("conclu"));
+    if (!doneCol) {
+      alert("Coluna 'Concluído' não encontrada. Crie uma coluna com o id 'done' ou título 'Concluído'.");
+      return;
+    }
+
     const newCols = columns.map(col => {
-      if (col.id === fromColId) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
-      if (col.id === "done")    return { ...col, cards: [...col.cards, card] };
+      if (col.id === fromColId) {
+        return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
+      }
+      if (col.id === doneCol.id) {
+        return { ...col, cards: [...toArr(col.cards), { ...card }] };
+      }
       return col;
     });
+
     updateColumns(newCols);
 
     toArr(card.members).forEach(mid => {
@@ -996,7 +1085,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
             onDragOver={e => e.preventDefault()}
             onDrop={e => handleDrop(e, col.id)}
             style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
-            {/* Column header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
@@ -1014,7 +1102,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
               </div>
             </div>
 
-            {/* Cards */}
             {col.cards.filter(filterCard).map(card => (
               <KanbanCard
                 key={card.id}
@@ -1035,7 +1122,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           </div>
         ))}
 
-        {/* Add column button */}
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
           <button
             onClick={() => setColModal({})}
@@ -1047,7 +1133,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         </div>
       </div>
 
-      {/* Modals */}
       {modal && (
         <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser}
           taskTypes={taskTypes} onSave={handleSave} onClose={() => setModal(null)}
@@ -1088,7 +1173,7 @@ function UsersTab({ members, updateMembers, columns }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Controle de Usuários</h2>
-        <button onClick={() => { setEditing("new"); setForm({ name: "", role: "", color: MEMBER_COLORS[0], newPassword: "" }); }} style={s.btn(T.accent)}>+ Novo Membro</button>
+        <button onClick={() => { setEditing("new"); setForm({ name: "", role: "", color: MEMBER_COLORS[0], newPassword: "", photo: null }); }} style={s.btn(T.accent)}>+ Novo Membro</button>
       </div>
       <div className="users-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
         {ranked.map((m, i) => {
@@ -1125,8 +1210,20 @@ function UsersTab({ members, updateMembers, columns }) {
 
       {editing && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setEditing(null)}>
-          <div style={s.card({ padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px #000000cc" })}>
-            <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{editing === "new" ? "Novo Membro" : "Editar"}</h3>
+          <div style={s.card({ padding: 24, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px #000000cc", maxHeight: "92vh", overflowY: "auto" })}>
+            <h3 style={{ margin: "0 0 20px", fontWeight: 800, color: T.text }}>{editing === "new" ? "Novo Membro" : "Editar Perfil"}</h3>
+
+            {/* ── NEW: Photo uploader in edit modal ── */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={s.label}>Foto de perfil</label>
+              <PhotoUploader
+                currentPhoto={form.photo || null}
+                color={form.color || MEMBER_COLORS[0]}
+                name={form.name || "?"}
+                onUpload={photo => setForm(f => ({ ...f, photo }))}
+              />
+            </div>
+
             {[["Nome", "name"], ["Cargo", "role"]].map(([l, k]) => (
               <div key={k} style={{ marginBottom: 12 }}>
                 <label style={s.label}>{l}</label>
@@ -1163,8 +1260,18 @@ function UsersTab({ members, updateMembers, columns }) {
 /* ─── ANALYTICS TAB ──────────────────────────────────────── */
 function AnalyticsTab({ columns, members }) {
   const [filter, setFilter] = useState("all");
-  const allCards = columns.flatMap(c => c.cards);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const allCards = columns.flatMap(c => ({ col: c, cards: c.cards })).flatMap(({ col, cards }) =>
+    cards.map(card => ({ ...card, colId: col.id, colTitle: col.title }))
+  );
   const doneCards = columns.find(c => c.id === "done")?.cards || [];
+
+  // ── NEW: Overdue = cards not in "done" with due < today ──
+  const overdueCards = allCards.filter(card =>
+    card.colId !== "done" && card.due && card.due < today
+  );
+
   const filtered = filter === "all" ? doneCards : doneCards.filter(c => toArr(c.members).includes(filter));
 
   const typeCounts = {};
@@ -1174,7 +1281,8 @@ function AnalyticsTab({ columns, members }) {
 
   const mStats = members.map(m => {
     const done = doneCards.filter(c => toArr(c.members).includes(m.id));
-    return { ...m, done: done.length, pts: done.reduce((a, c) => a + (c.points || 0), 0), total: allCards.filter(c => toArr(c.members).includes(m.id)).length };
+    const overdue = overdueCards.filter(c => toArr(c.members).includes(m.id)).length;
+    return { ...m, done: done.length, pts: done.reduce((a, c) => a + (c.points || 0), 0), total: allCards.filter(c => toArr(c.members).includes(m.id)).length, overdue };
   }).sort((a, b) => b.pts - a.pts);
   const maxPts = Math.max(...mStats.map(m => m.pts), 1);
 
@@ -1188,6 +1296,12 @@ function AnalyticsTab({ columns, members }) {
     ["Pontos", filtered.reduce((a, c) => a + (c.points || 0), 0), T.amber, "⭐"],
   ];
 
+  const daysDiff = (due) => {
+    const d = new Date(due);
+    const t = new Date(today);
+    return Math.floor((t - d) / (1000 * 60 * 60 * 24));
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
@@ -1197,7 +1311,8 @@ function AnalyticsTab({ columns, members }) {
           {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
         </select>
       </div>
-      {/* KPI grid: 4 cols desktop, 2 cols mobile */}
+
+      {/* KPIs */}
       <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
         {kpis.map(([l, v, c, icon]) => (
           <div key={l} style={s.card({ padding: "14px 16px" })}>
@@ -1207,7 +1322,58 @@ function AnalyticsTab({ columns, members }) {
           </div>
         ))}
       </div>
-      {/* Charts: 2 cols desktop, 1 col mobile */}
+
+      {/* ── NEW: Overdue cards section ── */}
+      {overdueCards.length > 0 && (
+        <div style={{ ...s.card({ padding: 18, marginBottom: 16, border: `1px solid ${T.red}44` }) }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <div style={{ background: T.redDim, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <span style={{ fontWeight: 800, fontSize: 14, color: T.red }}>Tarefas Atrasadas</span>
+              <span style={{ background: T.red, color: "#fff", borderRadius: "50%", width: 20, height: 20, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{overdueCards.length}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {overdueCards.map(card => {
+              const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
+              const pri = getPriority(card.priority);
+              const dias = daysDiff(card.due);
+              return (
+                <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: T.redDim, borderRadius: 10, border: `1px solid ${T.red}33` }}>
+                  <div style={{ width: 4, height: 36, borderRadius: 99, background: T.red, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.title}</p>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={s.badge(T.accent)}>{card.type}</span>
+                      <span style={s.badge(pri.color)}>{pri.label}</span>
+                      <span style={{ ...s.badge(T.red), display: "flex", alignItems: "center", gap: 3 }}>
+                        📅 {fmtDate(card.due)} · {dias}d atraso
+                      </span>
+                      <span style={{ fontSize: 10, color: T.textMuted }}>📌 {card.colTitle}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexShrink: 0 }}>
+                    {cardMembers.map((m, i) => (
+                      <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}>
+                        <Avatar member={m} size={26} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {overdueCards.length === 0 && (
+        <div style={{ ...s.card({ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }) }}>
+          <span style={{ fontSize: 20 }}>✅</span>
+          <span style={{ fontSize: 13, color: T.green, fontWeight: 600 }}>Nenhuma tarefa atrasada!</span>
+        </div>
+      )}
+
+      {/* Charts */}
       <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={s.card({ padding: 18 })}>
           <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Tipos mais realizados</h3>
@@ -1232,9 +1398,12 @@ function AnalyticsTab({ columns, members }) {
               <span style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, width: 18 }}>#{i + 1}</span>
               <Avatar member={m} size={24} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3, gap: 4 }}>
                   <span style={{ fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
-                  <span style={{ color: T.amber, fontWeight: 700, flexShrink: 0 }}>⭐ {m.pts}</span>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {m.overdue > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>⚠️{m.overdue}</span>}
+                    <span style={{ color: T.amber, fontWeight: 700 }}>⭐ {m.pts}</span>
+                  </div>
                 </div>
                 <div style={{ background: T.bg3, borderRadius: 99, height: 5 }}>
                   <div style={{ background: m.color, borderRadius: 99, height: 5, width: `${(m.pts / maxPts) * 100}%`, transition: "width .5s" }} />
@@ -1244,7 +1413,8 @@ function AnalyticsTab({ columns, members }) {
           ))}
         </div>
       </div>
-      {/* Priority grid: 4 cols desktop, 2 cols mobile */}
+
+      {/* Priority grid */}
       <div style={s.card({ padding: 18 })}>
         <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>Distribuição por prioridade (concluídas)</h3>
         <div className="pri-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
@@ -1344,7 +1514,6 @@ function SocialTab({ data, updateData }) {
           </label>
         </div>
       </div>
-      {/* Platform tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["instagram","tiktok","youtube"].map(p => (
           <button key={p} onClick={() => setPlatform(p)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
@@ -1352,7 +1521,6 @@ function SocialTab({ data, updateData }) {
           </button>
         ))}
       </div>
-      {/* KPI: 2x2 on mobile */}
       <div className="social-kpi" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
         {[["👁️ Views", totals.views, "#fff"],["❤️ Curtidas", totals.likes, pc],["💬 Coments.", totals.comments, T.blue],["📤 Compart.", totals.shares, T.green]].map(([l, v, c]) => (
           <div key={l} style={s.card({ padding: "12px 14px", textAlign: "center" })}>
@@ -1620,12 +1788,10 @@ export default function App() {
         {/* HEADER */}
         <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 12px" }}>
-            {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", flexShrink: 0 }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>SM</div>
-              <span style={{ fontWeight: 900, fontSize: 15, color: T.text, letterSpacing: -0.5, display: "none" }} className="nav-label" >Sistema Marketing</span>
+              <span style={{ fontWeight: 900, fontSize: 15, color: T.text, letterSpacing: -0.5, display: "none" }} className="nav-label">Sistema Marketing</span>
             </div>
-            {/* Nav */}
             <nav className="header-nav" style={{ display: "flex", flex: 1, justifyContent: "center" }}>
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 10px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s", whiteSpace: "nowrap" }}>
@@ -1634,7 +1800,6 @@ export default function App() {
                 </button>
               ))}
             </nav>
-            {/* Right */}
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <NotifBell notifs={myNotifs} onClear={clearNotifs} />
               <div className="header-user-info" style={{ display: "flex", alignItems: "center", gap: 8 }}>
