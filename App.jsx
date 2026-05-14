@@ -33,6 +33,15 @@ const GLOBAL_STYLE = `
   }
   input[type="checkbox"] { accent-color: #7c6af7; }
   select option { background: #22222c; color: #f0f0f5; }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(20px) scale(.95); }
+    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+  }
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateY(0)   scale(1);    }
+    to   { opacity: 0; transform: translateY(20px) scale(.95); }
+  }
 `;
 
 /* ─── THEME ─────────────────────────────────────────────── */
@@ -152,7 +161,6 @@ const s = {
     padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13,
     fontFamily: "inherit", transition: "opacity .15s", ...extra
   }),
-  // FIX: todos os inputs agora têm fundo escuro explícito e appearance: none nos selects
   input: (extra = {}) => ({
     background: T.bg3,
     border: `1px solid ${T.border}`,
@@ -164,8 +172,8 @@ const s = {
     boxSizing: "border-box",
     fontFamily: "inherit",
     outline: "none",
-    colorScheme: "dark",        // FIX: garante que date pickers e selects fiquem escuros
-    WebkitAppearance: "none",   // FIX: remove estilo nativo branco em selects (Safari/Chrome)
+    colorScheme: "dark",
+    WebkitAppearance: "none",
     appearance: "none",
     ...extra
   }),
@@ -208,6 +216,59 @@ function Avatar({ member, size = 28, style = {} }) {
 
 function Pill({ label, color }) {
   return <span style={s.badge(color)}>{label}</span>;
+}
+
+/* ─── TOAST ──────────────────────────────────────────────── */
+function Toast({ toast }) {
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setLeaving(true), 3200);
+    return () => clearTimeout(t1);
+  }, []);
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 14,
+      background: T.bg2, border: `1px solid ${T.green}55`,
+      borderRadius: 14, padding: "14px 20px",
+      boxShadow: "0 8px 32px #00000099",
+      animation: `${leaving ? "toastOut" : "toastIn"} .35s ease forwards`,
+      minWidth: 280, maxWidth: 360,
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: "50%",
+        background: T.green + "22", border: `2px solid ${T.green}55`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 20, flexShrink: 0,
+      }}>✅</div>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.text }}>
+          Tarefa concluída!
+        </p>
+        <p style={{ margin: "0 0 4px", fontSize: 12, color: T.textSub, lineHeight: 1.4 }}>
+          {toast.title}
+        </p>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.amber + "22", border: `1px solid ${T.amber}44`, borderRadius: 20, padding: "2px 10px" }}>
+          <span style={{ fontSize: 13 }}>⭐</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: T.amber }}>+{toast.points} pts</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── TOAST CONTAINER ────────────────────────────────────── */
+function ToastContainer({ toasts }) {
+  return (
+    <div style={{
+      position: "fixed", bottom: 28, right: 28,
+      display: "flex", flexDirection: "column", gap: 10,
+      zIndex: 9999, pointerEvents: "none",
+    }}>
+      {toasts.map(t => <Toast key={t.id} toast={t} />)}
+    </div>
+  );
 }
 
 /* ─── NOTIFICATION BELL ──────────────────────────────────── */
@@ -599,7 +660,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 <label style={{ ...s.label, marginBottom: 0 }}>Tipo</label>
                 <button onClick={onManageTypes} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 11, fontWeight: 700, padding: 0 }}>+ Gerenciar</button>
               </div>
-              {/* FIX: usando s.select() em vez de s.input() */}
               <select value={form.type} onChange={e => setF("type", e.target.value)} style={s.select({ padding: "6px 32px 6px 10px", fontSize: 13 })}>
                 {taskTypes.map(t => <option key={t} style={{ background: T.bg3, color: T.text }}>{t}</option>)}
               </select>
@@ -620,7 +680,6 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 
             <div>
               <label style={s.label}>Prazo</label>
-              {/* FIX: colorScheme dark no input date */}
               <input type="date" value={form.due} onChange={e => setF("due", e.target.value)}
                 style={s.input({ padding: "6px 10px", fontSize: 13, colorScheme: "dark", width: "100%" })} />
             </div>
@@ -664,7 +723,8 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────── */
-function KanbanCard({ card, colId, members, onOpen, onDelete }) {
+// Recebe onComplete(card, colId) — chamado ao clicar em ✅
+function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete }) {
   const [drag, setDrag] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
   const checklist = toArr(card.checklist);
@@ -673,23 +733,58 @@ function KanbanCard({ card, colId, members, onOpen, onDelete }) {
   const today = new Date().toISOString().slice(0, 10);
   const isOverdue = card.due && card.due < today;
 
+  // Cards já na coluna "done" não mostram o botão de concluir
+  const isDoneCol = colId === "done";
+
   return (
     <div
       draggable
       onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
       onDragEnd={() => setDrag(false)}
-      style={{ background: T.bg3, borderRadius: 10, padding: "12px 14px", border: `1px solid ${drag ? T.accent : isOverdue ? T.red + "55" : T.border}`, cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s" }}>
+      style={{
+        background: T.bg3, borderRadius: 10, padding: "12px 14px",
+        border: `1px solid ${drag ? T.accent : isOverdue ? T.red + "55" : T.border}`,
+        cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8, transition: "border .15s"
+      }}>
+
+      {/* ── Título + ações ── */}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: T.text, lineHeight: 1.4, flex: 1 }}>{card.title}</span>
-        <div style={{ display: "flex", gap: 2 }}>
+        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+          {/* ✅ Botão Concluir — só aparece fora da coluna done */}
+          {!isDoneCol && (
+            <button
+              title="Concluir tarefa"
+              onClick={e => { e.stopPropagation(); onComplete(card, colId); }}
+              style={{
+                background: T.green + "18",
+                border: `1px solid ${T.green}44`,
+                borderRadius: 6,
+                cursor: "pointer",
+                color: T.green,
+                fontSize: 13,
+                padding: "2px 6px",
+                fontFamily: "inherit",
+                fontWeight: 700,
+                lineHeight: 1.4,
+                transition: "background .15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = T.green + "35"}
+              onMouseLeave={e => e.currentTarget.style.background = T.green + "18"}
+            >
+              ✅
+            </button>
+          )}
           <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
           <button onClick={() => onDelete(card.id, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>🗑️</button>
         </div>
       </div>
+
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         <Pill label={card.type} color={T.accent} />
         <Pill label={pri.label} color={pri.color} />
       </div>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex" }}>
           {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} /></div>)}
@@ -749,7 +844,42 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [search, setSearch] = useState("");
   const [filterMember, setFilterMember] = useState("all");
 
+  // ── Toast state ──
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, points) => {
+    const id = uid();
+    setToasts(ts => [...ts, { id, title, points }]);
+    // Remove após 3.6 s (animação de saída começa em 3.2 s)
+    setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 3600);
+  }, []);
+
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  // ── Concluir card: move para coluna "done" e dispara toast ──
+  const handleComplete = useCallback((card, fromColId) => {
+    const doneCol = columns.find(c => c.id === "done");
+    if (!doneCol) { alert("Coluna 'Concluído' não encontrada."); return; }
+    if (fromColId === "done") return; // já concluído
+
+    const newCols = columns.map(col => {
+      if (col.id === fromColId) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
+      if (col.id === "done")    return { ...col, cards: [...col.cards, card] };
+      return col;
+    });
+    updateColumns(newCols);
+
+    // Notifica membros do card
+    toArr(card.members).forEach(mid => {
+      if (mid !== currentUser?.id) {
+        const mb = members.find(m => m.id === mid);
+        if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`);
+      }
+    });
+
+    // Dispara toast com os pontos
+    addToast(card.title, card.points || getPriority(card.priority).points);
+  }, [columns, updateColumns, members, currentUser, onNotify, addToast]);
 
   const handleDrop = (e, toColId) => {
     try {
@@ -820,7 +950,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     return true;
   };
 
-  // MELHORIA: contagem total de cards visíveis
   const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
 
   return (
@@ -828,12 +957,10 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar cards..." style={s.input({ maxWidth: 220 })} />
-        {/* FIX: usando s.select() */}
         <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 200 })}>
           <option value="all">Todos os membros</option>
           {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
         </select>
-        {/* MELHORIA: contador de cards filtrados */}
         {(search || filterMember !== "all") && (
           <span style={{ fontSize: 12, color: T.textMuted, background: T.bg3, padding: "4px 10px", borderRadius: 20, border: `1px solid ${T.border}` }}>
             {totalVisible} card{totalVisible !== 1 ? "s" : ""}
@@ -876,9 +1003,14 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
             {/* Cards */}
             {col.cards.filter(filterCard).map(card => (
-              <KanbanCard key={card.id} card={card} colId={col.id} members={members}
+              <KanbanCard
+                key={card.id}
+                card={card}
+                colId={col.id}
+                members={members}
                 onOpen={(c, cid) => setModal({ card: c, colId: cid })}
                 onDelete={handleDelete}
+                onComplete={handleComplete}
               />
             ))}
 
@@ -917,6 +1049,9 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           onSave={list => { updateTaskTypes(list); setTypesModal(false); }}
           onClose={() => setTypesModal(false)} />
       )}
+
+      {/* Toast container — renderizado dentro do BoardTab para ter acesso ao estado */}
+      <ToastContainer toasts={toasts} />
     </div>
   );
 }
@@ -1045,7 +1180,6 @@ function AnalyticsTab({ columns, members }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Produção</h2>
-        {/* FIX: usando s.select() */}
         <select value={filter} onChange={e => setFilter(e.target.value)} style={s.select({ maxWidth: 220 })}>
           <option value="all">Todos os membros</option>
           {members.map(m => <option key={m.id} value={m.id} style={{ background: T.bg3 }}>{m.name}</option>)}
@@ -1186,7 +1320,6 @@ function SocialTab({ data, updateData }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          {/* FIX: usando s.select() */}
           <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 150 })}>
             {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv} style={{ background: T.bg3 }}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
           </select>
@@ -1356,7 +1489,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             <label style={s.label}>Título</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ ...s.input(), marginBottom: 12 }} />
             <label style={s.label}>Tipo</label>
-            {/* FIX: usando s.select() */}
             <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ ...s.select(), marginBottom: 12 }}>
               {taskTypes.map(t => <option key={t} style={{ background: T.bg3 }}>{t}</option>)}
             </select>
