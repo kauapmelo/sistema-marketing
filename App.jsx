@@ -87,7 +87,7 @@ const GLOBAL_STYLE = `
     .top-nav-tabs { display: none !important; }
     .social-header { flex-direction: column !important; align-items: flex-start !important; }
     /* FIX: Calendar mobile - células menores mas visíveis */
-    .cal-day { min-height: 56px !important; padding: 3px 2px !important; }
+    ..cal-day { height: 64px !important; min-height: unset !important; overflow: hidden !important; padding: 3px 2px !important; }
     .cal-day-num { width: 18px !important; height: 18px !important; font-size: 10px !important; }
     .cal-event-label { font-size: 8px !important; }
     .filter-bar { flex-wrap: wrap !important; }
