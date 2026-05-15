@@ -1517,25 +1517,28 @@ function SocialTab({ data, updateData }) {
   const [csvError, setCsvError] = useState(null);
   const [csvPreview, setCsvPreview] = useState(null);
 
-  // Tokenizer CSV completo — suporta aspas, campos com quebra de linha interna e BOM UTF-8
-  const parseCSVFull = (text) => {
+  // Parser CSV completo — suporta aspas, campos com \n internos e BOM UTF-8
+  const parseCSV = (text, plat) => {
+    // Remove BOM e normaliza quebras de linha
     const raw = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    // Detecta separador pela primeira linha
+
+    // Detecta separador pela primeira linha (ignora conteúdo entre aspas)
     const firstLine = raw.split("\n")[0] || "";
-    let sc = 0, ss = 0, inQ = false;
+    let sc = 0, ss = 0, inQd = false;
     for (const ch of firstLine) {
-      if (ch === '"') { inQ = !inQ; continue; }
-      if (!inQ && ch === ",") sc++;
-      if (!inQ && ch === ";") ss++;
+      if (ch === '"') { inQd = !inQd; continue; }
+      if (!inQd && ch === ",") sc++;
+      if (!inQd && ch === ";") ss++;
     }
     const sep = ss > sc ? ";" : ",";
-    // Tokeniza respeitando aspas e newlines internos
+
+    // Tokenizer completo que suporta campos com newlines internos e aspas duplas escapadas
     const records = [];
     let cur = "", fields = [], inQuote = false;
     for (let i = 0; i < raw.length; i++) {
       const ch = raw[i];
       if (ch === '"') {
-        if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; }
+        if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; } // "" = aspas literal
         else inQuote = !inQuote;
       } else if (!inQuote && ch === sep) {
         fields.push(cur); cur = "";
@@ -1548,76 +1551,84 @@ function SocialTab({ data, updateData }) {
       }
     }
     if (fields.length || cur) { fields.push(cur); if (fields.some(f => f.trim())) records.push(fields); }
-    if (records.length < 2) return { records: [], headers: [], sep, error: "Arquivo vazio ou sem dados suficientes." };
+
+    if (records.length < 2) return { rows: [], headers: [], sep, error: "Arquivo vazio ou sem dados suficientes." };
+
+    // Headers normalizados
     const headers = records[0].map(h => h.trim().toLowerCase());
-    return { headers, records: records.slice(1), sep, error: null };
-  };
+    const dataRows = records.slice(1);
 
-  const parseNum = (val) => {
-    if (!val && val !== 0) return 0;
-    const s = String(val).trim().replace(/\s/g, "");
-    if (!s) return 0;
-    // Formato BR: 1.234,56
-    if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0);
-    // Formato EN: 1,234.56
-    if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/,/g, "")) || 0);
-    return Math.round(parseFloat(s.replace(/[^\d.]/g, "")) || 0);
-  };
+    // Helper: acha índice da PRIMEIRA coluna que contenha algum dos termos (busca exata primeiro, depois parcial)
+    const findIdx = (exactTerms, partialTerms) => {
+      // Tenta match exato primeiro
+      const ei = headers.findIndex(h => exactTerms.some(k => h === k));
+      if (ei >= 0) return ei;
+      // Depois parcial
+      return headers.findIndex(h => (partialTerms || exactTerms).some(k => h.includes(k)));
+    };
 
-  const findIdx = (headers, ...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-
-  const parseCSV = (text, plat) => {
-    const { headers, records, sep, error } = parseCSVFull(text);
-    if (error) return { rows: [], headers: [], sep: ",", error };
-
-    // Índices das colunas — nomes reais do Meta Business Suite + genéricos
-    const iPostId   = findIdx(headers, "identificação do post", "post id", "media id");
-    const iDesc     = findIdx(headers, "descrição", "description", "legenda", "caption", "título", "title", "nome do vídeo", "video title", "conteúdo", "content", "nome");
-    const iType     = findIdx(headers, "tipo de post", "post type", "media type", "tipo");
-    const iPubDate  = findIdx(headers, "horário de publicação", "data de publicação", "published at", "post date", "created", "publicado", "posted at", "horário");
-    const iDataCol  = findIdx(headers, "data"); // coluna "Data" do Instagram: valor "Total" ou data específica
-    const iViews    = findIdx(headers, "visualizações", "views", "plays", "reproduções", "vídeo views", "video views", "impressões", "impressions");
-    const iReach    = findIdx(headers, "alcance", "reach");
-    const iLikes    = findIdx(headers, "curtidas", "likes", "reações", "reactions", "hearts", "favoritos");
-    const iShares   = findIdx(headers, "compartilhamentos", "shares", "repost");
-    const iComments = findIdx(headers, "comentários", "comments");
-    const iSaves    = findIdx(headers, "salvamentos", "saves", "bookmarks");
+    // Mapeamento de colunas — nomes reais do Meta Business Suite (Instagram)
+    const iPostId   = findIdx(["identificação do post", "post id", "media id"], []);
+    const iDesc     = findIdx(["descrição", "description", "caption", "legenda"], ["título", "title", "conteúdo", "content"]);
+    const iType     = findIdx(["tipo de post", "post type", "media type", "tipo"], []);
+    const iPubDate  = findIdx(["horário de publicação", "data de publicação", "published at", "post date", "posted at"], ["horário", "publicado", "created"]);
+    const iDataCol  = findIdx(["data"], []);  // coluna "Data" do Instagram: "Total" ou data específica
+    const iViews    = findIdx(["visualizações", "views", "plays", "reproduções", "video views"], ["visualiz", "impres"]);
+    const iReach    = findIdx(["alcance", "reach"], []);
+    const iLikes    = findIdx(["curtidas", "likes", "reações", "reactions"], ["curtida", "like", "reação"]);
+    const iShares   = findIdx(["compartilhamentos", "shares"], ["compartilh", "share"]);
+    const iComments = findIdx(["comentários", "comments"], ["comentar", "comment"]);
+    const iSaves    = findIdx(["salvamentos", "saves", "bookmarks"], ["salv", "save"]);
 
     const get = (row, i) => (i >= 0 && i < row.length) ? row[i].trim() : "";
 
-    // Instagram exporta uma linha "Data = Total" com os dados acumulados do post.
-    // Se essa coluna existir, filtra só essas linhas; senão usa tudo.
-    const hasTotalRows = iDataCol >= 0 && records.some(r => get(r, iDataCol).toLowerCase() === "total");
+    const parseNum = (val) => {
+      const s = String(val || "").trim().replace(/\s/g, "");
+      if (!s) return 0;
+      // Formato BR: 1.234,56 → remove pontos, troca vírgula por ponto
+      if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0);
+      // Formato EN: 1,234.56 → remove vírgulas
+      if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/,/g, "")) || 0);
+      return Math.round(parseFloat(s.replace(/[^\d.]/g, "")) || 0);
+    };
+
+    // Instagram: filtra apenas linhas onde "Data" = "Total" (acumulado do post)
+    // Se não existir essa coluna ou valor, usa todas
+    const hasTotalRows = iDataCol >= 0 && dataRows.some(r => get(r, iDataCol).toLowerCase() === "total");
     const filtered = hasTotalRows
-      ? records.filter(r => get(r, iDataCol).toLowerCase() === "total")
-      : records;
+      ? dataRows.filter(r => get(r, iDataCol).toLowerCase() === "total")
+      : dataRows;
 
     const rows = filtered.map((row, idx) => {
-      // Título: usa Descrição, remove quebras de linha, limita a 80 chars
+      // Título: usa Descrição (limpa newlines e hashtags excessivos, limita 80 chars)
       let title = get(row, iDesc);
       if (!title && iPostId >= 0) title = get(row, iPostId);
       if (!title) title = `Post ${idx + 1}`;
-      title = title.replace(/\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      // Remove quebras de linha internas, limpa espaços e limita
+      title = title.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+      // Se tiver hashtags, pega só o texto antes delas
+      const hashIdx = title.indexOf(" #");
+      if (hashIdx > 20) title = title.slice(0, hashIdx).trim();
+      title = title.slice(0, 80) || `Post ${idx + 1}`;
 
-      // Views: prefere Visualizações, usa Alcance como fallback
       const views    = parseNum(get(row, iViews)) || parseNum(get(row, iReach));
       const likes    = parseNum(get(row, iLikes));
       const comments = parseNum(get(row, iComments));
       const shares   = parseNum(get(row, iShares));
-      const saves    = iSaves >= 0 ? parseNum(get(row, iSaves)) : 0;
+      const saves    = parseNum(get(row, iSaves));
 
-      // Data: converte MM/DD/YYYY → YYYY-MM-DD
+      // Converte data MM/DD/YYYY HH:mm → YYYY-MM-DD
       let date = get(row, iPubDate) || new Date().toISOString().slice(0, 10);
       const mdy = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (mdy) date = `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
       else date = date.slice(0, 10);
 
-      // Tipo
+      // Tipo de post
       const rawType = get(row, iType);
       const type = /reel/i.test(rawType) ? "Reels"
-        : /story|stories/i.test(rawType) ? "Story"
+        : /story|storie/i.test(rawType) ? "Story"
         : /live/i.test(rawType) ? "Live"
-        : /video|vídeo/i.test(rawType) ? "Vídeo"
+        : /v[íi]deo|video/i.test(rawType) ? "Vídeo"
         : "Post";
 
       return { id: uid(), title, thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, saves, date, type };
@@ -1637,14 +1648,14 @@ function SocialTab({ data, updateData }) {
         const result = parseCSV(ev.target.result, platform);
         if (result.error) { setCsvError(result.error); return; }
         if (!result.rows.length) {
-          setCsvError("Nenhuma linha válida encontrada. O arquivo pode estar vazio ou em formato não suportado.");
+          setCsvError("Nenhuma linha válida encontrada. Verifique se o arquivo tem conteúdo.");
           return;
         }
         updateData({ ...data, [platform]: [...toArr(data[platform]), ...result.rows] });
         setCsvPreview({ count: result.rows.length, sep: result.sep === "\t" ? "TAB" : result.sep, sample: result.rows[0]?.title?.slice(0, 60) || "" });
         setTimeout(() => setCsvPreview(null), 7000);
       } catch (err) {
-        setCsvError("Erro inesperado ao processar o arquivo: " + err.message);
+        setCsvError("Erro inesperado: " + err.message);
       }
     };
     reader.onerror = () => setCsvError("Não foi possível ler o arquivo.");
@@ -1668,6 +1679,20 @@ function SocialTab({ data, updateData }) {
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
             📥 CSV <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display: "none" }} />
           </label>
+          {toArr(data[platform]).length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Excluir todos os ${toArr(data[platform]).length} posts de ${platform.charAt(0).toUpperCase() + platform.slice(1)}?`)) {
+                  updateData({ ...data, [platform]: [] });
+                  setCsvPreview(null);
+                  setCsvError(null);
+                }
+              }}
+              style={s.btn(T.redDim, { color: T.red, fontSize: 12, display: "flex", alignItems: "center", gap: 5 })}
+            >
+              🗑️ Limpar todos
+            </button>
+          )}
         </div>
       </div>
       {/* CSV error feedback */}
