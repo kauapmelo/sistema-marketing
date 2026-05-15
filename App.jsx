@@ -1514,33 +1514,108 @@ function SocialTab({ data, updateData }) {
   const [sortBy, setSortBy] = useState("views");
   const [guide, setGuide] = useState(false);
 
+  const [csvError, setCsvError] = useState(null);
+  const [csvPreview, setCsvPreview] = useState(null);
+
+  // Detecta separador do CSV (vírgula, ponto-e-vírgula ou tab)
+  const detectSep = (line) => {
+    const counts = { ",": (line.match(/,/g)||[]).length, ";": (line.match(/;/g)||[]).length, "\t": (line.match(/\t/g)||[]).length };
+    return Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+  };
+
+  // Divide uma linha respeitando aspas
+  const splitLine = (line, sep) => {
+    const result = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (!inQ && ch === sep) { result.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+  };
+
   const parseCSV = (text, plat) => {
-    const lines = text.split("\n").filter(l => l.trim());
-    if (lines.length < 2) return [];
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
-    const findCol = (...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-    const iTitle = findCol("título","title","nome","name","video");
-    const iViews = findCol("view","visualiz","impres");
-    const iLikes = findCol("like","curtida");
-    const iComments = findCol("comment","comentar");
-    const iShares = findCol("share","compartilh");
-    const iDate = findCol("date","data");
-    return lines.slice(1).map((line, idx) => {
-      const cols = line.split(",").map(c => c.trim().replace(/"/g, ""));
-      const num = i => i >= 0 ? (parseInt(cols[i]) || 0) : 0;
-      return { id: uid(), title: iTitle >= 0 ? cols[iTitle] : `Conteúdo ${idx + 1}`, thumbnail: PLATFORM_ICONS[plat], views: num(iViews), likes: num(iLikes), comments: num(iComments), shares: num(iShares), date: iDate >= 0 ? cols[iDate] : new Date().toISOString().slice(0, 10), type: "Importado" };
-    }).filter(r => r.title);
+    // Normaliza quebras de linha
+    const raw = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = raw.split("\n").filter(l => l.trim());
+    if (lines.length < 2) return { rows: [], headers: [], sep: ",", error: "Arquivo vazio ou sem dados." };
+
+    const sep = detectSep(lines[0]);
+    const headers = splitLine(lines[0], sep).map(h => h.toLowerCase().replace(/['"]/g, "").trim());
+
+    // Mapeamento amplo de cabeçalhos reais de cada plataforma
+    const TITLE_KEYS   = ["título","title","nome","name","video title","post title","description","legenda","caption","content title","video","post","publicação","conteúdo","content"];
+    const VIEWS_KEYS   = ["view","visualiz","impres","alcance","reach","plays","reproduç","reproducao","play count","video views","impressions","pageviews"];
+    const LIKES_KEYS   = ["like","curtida","reaction","reação","hearts","favorit","love","👍"];
+    const COMMENT_KEYS = ["comment","comentar","resposta","reply","replies"];
+    const SHARES_KEYS  = ["share","compartilh","repost","retweet","encaminh","forward","repasse"];
+    const DATE_KEYS    = ["date","data","período","period","created","publicado","published","post date","time","hora","when","posted"];
+
+    const findCol = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+
+    const iTitle    = findCol(TITLE_KEYS);
+    const iViews    = findCol(VIEWS_KEYS);
+    const iLikes    = findCol(LIKES_KEYS);
+    const iComments = findCol(COMMENT_KEYS);
+    const iShares   = findCol(SHARES_KEYS);
+    const iDate     = findCol(DATE_KEYS);
+
+    // Se não achou título nem views, tenta mapear pela posição (1ª coluna = título, demais = números)
+    const fallback = iTitle < 0 && iViews < 0;
+
+    const parseNum = (val) => {
+      if (!val) return 0;
+      // Remove pontos de milhar e troca vírgula decimal por ponto
+      const clean = String(val).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "");
+      return Math.round(parseFloat(clean) || 0);
+    };
+
+    const rows = lines.slice(1).map((line, idx) => {
+      const cols = splitLine(line, sep);
+      const get = (i) => i >= 0 && i < cols.length ? cols[i] : "";
+
+      const title = fallback
+        ? (cols[0] || `Conteúdo ${idx + 1}`)
+        : (get(iTitle) || `Conteúdo ${idx + 1}`);
+
+      const views    = fallback ? parseNum(cols[1]) : parseNum(get(iViews));
+      const likes    = fallback ? parseNum(cols[2]) : parseNum(get(iLikes));
+      const comments = fallback ? parseNum(cols[3]) : parseNum(get(iComments));
+      const shares   = fallback ? parseNum(cols[4]) : parseNum(get(iShares));
+      const date     = get(iDate) || new Date().toISOString().slice(0, 10);
+
+      return { id: uid(), title: title.trim(), thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, date, type: "Importado" };
+    }).filter(r => r.title && r.title.length > 0);
+
+    return { rows, headers, sep, iTitle, iViews, iLikes, iDate, error: null };
   };
 
   const handleCSV = e => {
-    const file = e.target.files[0]; if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
+    setCsvError(null);
     const reader = new FileReader();
     reader.onload = ev => {
-      const rows = parseCSV(ev.target.result, platform);
-      if (rows.length) updateData({ ...data, [platform]: [...toArr(data[platform]), ...rows] });
-      else alert("Nenhum dado encontrado no CSV.");
+      try {
+        const result = parseCSV(ev.target.result, platform);
+        if (result.error) { setCsvError(result.error); return; }
+        if (!result.rows.length) {
+          setCsvError("Nenhuma linha válida encontrada. Verifique se o arquivo tem conteúdo.");
+          return;
+        }
+        updateData({ ...data, [platform]: [...toArr(data[platform]), ...result.rows] });
+        setCsvPreview({ count: result.rows.length, headers: result.headers, sep: result.sep === "\t" ? "TAB" : result.sep });
+        setTimeout(() => setCsvPreview(null), 5000);
+      } catch(err) {
+        setCsvError("Erro ao ler o arquivo: " + err.message);
+      }
     };
-    reader.readAsText(file); e.target.value = "";
+    reader.onerror = () => setCsvError("Não foi possível ler o arquivo.");
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
   };
 
   const posts = [...toArr(data[platform])].sort((a, b) => b[sortBy] - a[sortBy]);
@@ -1561,6 +1636,42 @@ function SocialTab({ data, updateData }) {
           </label>
         </div>
       </div>
+      {/* CSV error feedback */}
+      {csvError && (
+        <div style={{ background: T.redDim, border: `1px solid ${T.red}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.red }}>Erro ao importar CSV</p>
+            <p style={{ margin: 0, fontSize: 12, color: T.textSub }}>{csvError}</p>
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: T.textMuted }}>Dica: o arquivo precisa ter pelo menos 2 linhas (cabeçalho + dados). Qualquer separador funciona (vírgula, ponto-e-vírgula, tab).</p>
+          </div>
+          <button onClick={() => setCsvError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 18, padding: 0, flexShrink: 0 }}>×</button>
+        </div>
+      )}
+
+      {/* CSV success feedback */}
+      {csvPreview && (
+        <div style={{ background: T.greenDim, border: `1px solid ${T.green}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 16 }}>✅</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.green }}>{csvPreview.count} itens importados com sucesso!</p>
+            <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>
+              Separador detectado: <strong style={{ color: T.textSub }}>{csvPreview.sep}</strong> · Colunas encontradas: {csvPreview.headers.slice(0,5).join(", ")}{csvPreview.headers.length > 5 ? ` +${csvPreview.headers.length - 5}` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Instrução de formato CSV */}
+      <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
+        <p style={{ margin: 0, fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+          Aceita qualquer CSV — separador vírgula, <strong>;</strong> ou TAB. Colunas reconhecidas automaticamente:{" "}
+          <span style={{ color: T.textSub }}>título, views/visualizações, likes/curtidas, comentários, compartilhamentos, data</span>.
+          Se os nomes não baterem, os dados são importados pela ordem das colunas.
+        </p>
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["instagram","tiktok","youtube"].map(p => (
           <button key={p} onClick={() => setPlatform(p)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
