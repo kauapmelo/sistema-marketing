@@ -86,15 +86,10 @@ const GLOBAL_STYLE = `
     .bottom-nav { display: flex !important; }
     .top-nav-tabs { display: none !important; }
     .social-header { flex-direction: column !important; align-items: flex-start !important; }
-    /* FIX: Calendar mobile - células menores mas visíveis */
-    ..cal-day { height: 64px !important; min-height: unset !important; overflow: hidden !important; padding: 3px 2px !important; }
-    .cal-day-num { width: 18px !important; height: 18px !important; font-size: 10px !important; }
-    .cal-event-label { font-size: 8px !important; }
     .filter-bar { flex-wrap: wrap !important; }
     .filter-bar-right { margin-left: 0 !important; width: 100% !important; justify-content: stretch !important; }
     .filter-bar-right button { flex: 1 !important; }
     .modal-inner { max-width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; max-height: 92vh !important; overflow-y: auto !important; }
-    /* FIX: Calendar detail panel - better layout on mobile */
     .cal-detail-row { flex-wrap: wrap !important; gap: 8px !important; }
     .cal-detail-member { min-width: 0 !important; }
   }
@@ -254,7 +249,7 @@ function GlobalStyles() {
   return <style>{GLOBAL_STYLE}</style>;
 }
 
-/* ─── FIX: ONLINE PRESENCE via Firebase ─────────────────── */
+/* ─── ONLINE PRESENCE via Firebase ─────────────────────── */
 function useOnlinePresence(userId) {
   useEffect(() => {
     if (!userId) return;
@@ -270,7 +265,6 @@ function useOnlinePresence(userId) {
   }, [userId]);
 }
 
-/* Hook to get all presence data from Firebase */
 function usePresence() {
   const [presence, setPresence] = useState({});
   useEffect(() => {
@@ -284,7 +278,6 @@ function usePresence() {
 
 /* ─── AVATAR ─────────────────────────────────────────────── */
 function Avatar({ member, size = 28, style = {}, showOnline = false, presence = {} }) {
-  // FIX: use Firebase presence data instead of localStorage
   const presData = presence[member?.id];
   const online = showOnline && presData?.online && (Date.now() - (presData?.lastSeen || 0) < 35000);
 
@@ -983,8 +976,13 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
+
+  // ── FIX: Column drag state stored in refs to avoid stale closures ──
+  const draggingColIdRef = useRef(null);
   const [draggingColId, setDraggingColId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
+  // Separate drag type tracking: "col" or "card"
+  const dragTypeRef = useRef(null);
 
   const addToast = useCallback((title, points) => {
     const id = uid();
@@ -1020,36 +1018,70 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
 
-  const handleColDragStart = (e, colId) => {
+  // ── FIX: Column drag handlers — use columnsRef to avoid stale closure ──
+  const columnsRef = useRef(columns);
+  useEffect(() => { columnsRef.current = columns; }, [columns]);
+
+  const handleColDragStart = useCallback((e, colId) => {
     e.stopPropagation();
+    dragTypeRef.current = "col";
+    draggingColIdRef.current = colId;
     setDraggingColId(colId);
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("dragType", "col");
     e.dataTransfer.setData("colId", colId);
-  };
+  }, []);
 
-  const handleColDragOver = (e, colId) => {
+  const handleColDragOver = useCallback((e, colId) => {
     e.preventDefault();
-    if (colId !== draggingColId) setDragOverColId(colId);
-  };
+    e.stopPropagation();
+    if (dragTypeRef.current !== "col") return;
+    if (colId !== draggingColIdRef.current) {
+      setDragOverColId(colId);
+    }
+  }, []);
 
-  const handleColDrop = (e, toColId) => {
+  const handleColDrop = useCallback((e, toColId) => {
     e.preventDefault();
-    if (!draggingColId || draggingColId === toColId) { setDraggingColId(null); setDragOverColId(null); return; }
-    const ordered = [...sortedCols];
-    const fromIdx = ordered.findIndex(c => c.id === draggingColId);
+    e.stopPropagation();
+    const fromColId = draggingColIdRef.current;
+    if (!fromColId || fromColId === toColId || dragTypeRef.current !== "col") {
+      setDraggingColId(null);
+      setDragOverColId(null);
+      draggingColIdRef.current = null;
+      dragTypeRef.current = null;
+      return;
+    }
+    const currentCols = columnsRef.current;
+    const ordered = [...currentCols].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const fromIdx = ordered.findIndex(c => c.id === fromColId);
     const toIdx   = ordered.findIndex(c => c.id === toColId);
+    if (fromIdx < 0 || toIdx < 0) {
+      setDraggingColId(null);
+      setDragOverColId(null);
+      draggingColIdRef.current = null;
+      dragTypeRef.current = null;
+      return;
+    }
     const [moved] = ordered.splice(fromIdx, 1);
     ordered.splice(toIdx, 0, moved);
     const reordered = ordered.map((c, i) => ({ ...c, order: i }));
     updateColumns(reordered);
     setDraggingColId(null);
     setDragOverColId(null);
-  };
+    draggingColIdRef.current = null;
+    dragTypeRef.current = null;
+  }, [updateColumns]);
 
-  const handleColDragEnd = () => { setDraggingColId(null); setDragOverColId(null); };
+  const handleColDragEnd = useCallback(() => {
+    setDraggingColId(null);
+    setDragOverColId(null);
+    draggingColIdRef.current = null;
+    dragTypeRef.current = null;
+  }, []);
 
   const handleMoveUp = useCallback((cardId, colId) => {
-    const newCols = columns.map(col => {
+    const newCols = columnsRef.current.map(col => {
       if (col.id !== colId) return col;
       const idx = col.cards.findIndex(c => c.id === cardId);
       if (idx <= 0) return col;
@@ -1058,10 +1090,10 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       return { ...col, cards };
     });
     updateColumns(newCols);
-  }, [columns, updateColumns]);
+  }, [updateColumns]);
 
   const handleMoveDown = useCallback((cardId, colId) => {
-    const newCols = columns.map(col => {
+    const newCols = columnsRef.current.map(col => {
       if (col.id !== colId) return col;
       const idx = col.cards.findIndex(c => c.id === cardId);
       if (idx < 0 || idx >= col.cards.length - 1) return col;
@@ -1070,11 +1102,11 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       return { ...col, cards };
     });
     updateColumns(newCols);
-  }, [columns, updateColumns]);
+  }, [updateColumns]);
 
   const handleComplete = useCallback((card, fromColId) => {
     if (card.completed) return;
-    const newCols = columns.map(col => {
+    const newCols = columnsRef.current.map(col => {
       if (col.id !== fromColId) return col;
       return { ...col, cards: col.cards.map(c => c.id === card.id ? { ...c, completed: true } : c) };
     });
@@ -1083,25 +1115,29 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`); }
     });
     addToast(card.title, card.points || getPriority(card.priority).points);
-  }, [columns, updateColumns, members, currentUser, onNotify, addToast]);
+  }, [updateColumns, members, currentUser, onNotify, addToast]);
 
-  const handleCardDrop = (e, toColId) => {
+  // ── FIX: Card drop — only fires when dragType is "card" ──
+  const handleCardDrop = useCallback((e, toColId) => {
+    // If this is a column drag, ignore
+    const dtype = e.dataTransfer.getData("dragType");
+    if (dtype === "col") return;
     const cardData = e.dataTransfer.getData("card");
     if (!cardData) return;
     try {
       const { card, fromCol } = JSON.parse(cardData);
       if (fromCol === toColId) return;
-      const newCols = columns.map(col => {
+      const newCols = columnsRef.current.map(col => {
         if (col.id === fromCol) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
         if (col.id === toColId) return { ...col, cards: [...col.cards, card] };
         return col;
       });
       updateColumns(newCols);
     } catch (err) { console.error("Drop error:", err); }
-  };
+  }, [updateColumns]);
 
   const handleSave = (form, colId) => {
-    const newCols = columns.map(col => {
+    const newCols = columnsRef.current.map(col => {
       if (col.id !== colId) return col;
       if (form.id) return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
       const newCard = { ...form, id: uid() };
@@ -1115,25 +1151,26 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   };
 
   const handleQuickAdd = (newCard, colId) => {
-    const newCols = columns.map(col => col.id === colId ? { ...col, cards: [...col.cards, newCard] } : col);
+    const newCols = columnsRef.current.map(col => col.id === colId ? { ...col, cards: [...col.cards, newCard] } : col);
     updateColumns(newCols);
   };
 
   const handleDelete = (cid, colId) => {
     if (!window.confirm("Excluir este card?")) return;
-    updateColumns(columns.map(col => col.id === colId ? { ...col, cards: col.cards.filter(c => c.id !== cid) } : col));
+    updateColumns(columnsRef.current.map(col => col.id === colId ? { ...col, cards: col.cards.filter(c => c.id !== cid) } : col));
   };
 
   const handleSaveCol = colData => {
-    const exists = columns.find(c => c.id === colData.id);
-    if (exists) updateColumns(columns.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
-    else updateColumns([...columns, { ...colData, cards: [] }]);
+    const current = columnsRef.current;
+    const exists = current.find(c => c.id === colData.id);
+    if (exists) updateColumns(current.map(c => c.id === colData.id ? { ...colData, cards: c.cards } : c));
+    else updateColumns([...current, { ...colData, cards: [] }]);
     setColModal(null);
   };
 
   const handleDeleteCol = colId => {
     if (!window.confirm("Excluir coluna e todos os cards dela?")) return;
-    updateColumns(columns.filter(c => c.id !== colId));
+    updateColumns(columnsRef.current.filter(c => c.id !== colId));
   };
 
   const activeFilterName = myCardsMode
@@ -1193,17 +1230,48 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           const visibleCards = sortedCards.filter(filterCard);
           const colPts = col.cards.reduce((a, c) => a + (c.points || 0), 0);
           const isDragOver = dragOverColId === col.id;
-          const isDragging = draggingColId === col.id;
+          const isDraggingThis = draggingColId === col.id;
+
           return (
-            <div key={col.id} className="kanban-col" draggable
-              onDragStart={e => handleColDragStart(e, col.id)}
+            <div
+              key={col.id}
+              className="kanban-col"
+              // ── FIX: The column itself is draggable via the handle only ──
+              // We don't put draggable on the outer div to avoid conflicts with card drops
+              onDragOver={e => {
+                e.preventDefault();
+                if (dragTypeRef.current === "col") {
+                  handleColDragOver(e, col.id);
+                }
+              }}
+              onDrop={e => {
+                const dtype = e.dataTransfer.getData("dragType");
+                if (dtype === "col") {
+                  handleColDrop(e, col.id);
+                } else {
+                  handleCardDrop(e, col.id);
+                }
+              }}
               onDragEnd={handleColDragEnd}
-              onDragOver={e => { if (draggingColId) { handleColDragOver(e, col.id); return; } e.preventDefault(); }}
-              onDrop={e => { if (draggingColId) { handleColDrop(e, col.id); return; } handleCardDrop(e, col.id); }}
-              style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1.5px solid ${isDragOver ? T.accent : T.border}`, padding: 10, flexShrink: 0, opacity: isDragging ? 0.5 : 1, transition: "border-color .2s, opacity .2s, transform .15s", transform: isDragOver ? "scale(1.015)" : "scale(1)", boxShadow: isDragOver ? `0 0 0 2px ${T.accent}44` : "none" }}>
+              style={{
+                minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12,
+                border: `1.5px solid ${isDragOver && dragTypeRef.current === "col" ? T.accent : T.border}`,
+                padding: 10, flexShrink: 0, opacity: isDraggingThis ? 0.45 : 1,
+                transition: "border-color .2s, opacity .2s, transform .15s",
+                transform: isDragOver && dragTypeRef.current === "col" ? "scale(1.015)" : "scale(1)",
+                boxShadow: isDragOver && dragTypeRef.current === "col" ? `0 0 0 2px ${T.accent}44` : "none"
+              }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  <div className="col-drag-handle" title="Arrastar coluna" style={{ cursor: "grab", color: T.textMuted, fontSize: 13, flexShrink: 0, padding: "0 2px", userSelect: "none" }} onMouseDown={e => e.stopPropagation()}>⠿</div>
+                  {/* ── FIX: Drag handle — only this element triggers column drag ── */}
+                  <div
+                    className="col-drag-handle"
+                    title="Arrastar coluna"
+                    draggable
+                    onDragStart={e => handleColDragStart(e, col.id)}
+                    onDragEnd={handleColDragEnd}
+                    style={{ cursor: "grab", color: T.textMuted, fontSize: 13, flexShrink: 0, padding: "0 2px", userSelect: "none" }}
+                  >⠿</div>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
                   <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
                   <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>{visibleCards.length}</span>
@@ -2138,9 +2206,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
   const allCards = columns.flatMap(c => c.cards);
   const memberColor = id => members.find(m => m.id === id)?.color || T.textMuted;
 
-  // FIX: A day has content if it has events OR cards with due dates
-  const dayHasContent = d => eventsFor(d).length > 0 || allCards.some(c => c.due && c.due.startsWith(datePfx(d)));
-
   const handleEventDragStart = (e, ev) => { e.stopPropagation(); setDraggingEvent(ev); };
   const handleDayDragOver = (e, day) => { e.preventDefault(); setDragOverDay(day); };
   const handleDayDrop = (e, day) => {
@@ -2181,76 +2246,152 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
         </div>
       )}
 
-      <div style={{ overflowX: "auto" }}>
-        <div style={s.card({ overflow: "hidden", minWidth: 320 })}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
-            {DAY_NAMES.map(d => <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: T.textMuted }}>{d}</div>)}
+      {/* ── FIX: Calendar grid — overflowX scroll wrapper with enforced minWidth ── */}
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ ...s.card({ overflow: "hidden" }), minWidth: 560 }}>
+          {/* Day name headers */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            background: T.bg2,
+            borderBottom: `1px solid ${T.border}`
+          }}>
+            {DAY_NAMES.map(d => (
+              <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: T.textMuted }}>
+                {d}
+              </div>
+            ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
-            {Array.from({ length: first }).map((_, i) => <div key={`e${i}`} style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, background: T.bg1 }} />)}
+
+          {/* Day cells grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+            {/* Empty cells before first day */}
+            {Array.from({ length: first }).map((_, i) => (
+              <div
+                key={`e${i}`}
+                style={{
+                  height: 72,
+                  overflow: "hidden",
+                  borderBottom: `1px solid ${T.border}`,
+                  borderRight: `1px solid ${T.border}`,
+                  background: T.bg1
+                }}
+              />
+            ))}
+
+            {/* Day cells */}
             {Array.from({ length: days }).map((_, i) => {
               const day = i + 1;
               const evs = eventsFor(day);
-              // FIX: show ALL cards with due on this day (not just 1)
               const dueCards = allCards.filter(c => c.due && c.due.startsWith(datePfx(day)));
               const isSel = sel === day;
               const isDragOver = dragOverDay === day;
               const totalItems = evs.length + dueCards.length;
+
               return (
-                <div key={day}
+                <div
+                  key={day}
                   onClick={() => setSel(day === sel ? null : day)}
                   onDragOver={e => handleDayDragOver(e, day)}
                   onDrop={e => handleDayDrop(e, day)}
                   onDragLeave={() => setDragOverDay(null)}
-                  className="cal-day"
                   style={{
-                    minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`,
-                    padding: "6px 4px", cursor: "pointer",
-                    background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2,
-                    border: isDragOver ? `2px solid ${T.accent}` : undefined,
+                    // ── FIX: fixed height, not minHeight — inline style wins over CSS ──
+                    height: 72,
+                    overflow: "hidden",
+                    boxSizing: "border-box",
+                    borderBottom: `1px solid ${T.border}`,
+                    borderRight: `1px solid ${T.border}`,
+                    padding: "5px 3px",
+                    cursor: "pointer",
+                    background: isDragOver
+                      ? T.accent + "22"
+                      : isSel
+                        ? T.accentDim
+                        : isToday(day)
+                          ? T.blueDim
+                          : T.bg2,
+                    outline: isDragOver ? `2px solid ${T.accent}` : "none",
+                    outlineOffset: "-2px",
                     transition: "background .15s"
+                  }}
+                >
+                  {/* Day number */}
+                  <div style={{
+                    width: 20, height: 20, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: isToday(day) ? T.blue : "transparent",
+                    color: isToday(day) ? "#fff" : T.text,
+                    fontWeight: isToday(day) ? 700 : 500,
+                    fontSize: 11, marginBottom: 2, flexShrink: 0
                   }}>
-                  <div className="cal-day-num" style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 3 }}>{day}</div>
+                    {day}
+                  </div>
 
-                  {/* Events */}
+                  {/* Events (up to 2 total between events + cards) */}
                   {evs.slice(0, 2).map(ev => {
                     const mb = members.find(m => m.id === ev.memberId);
                     const t = fmtEventTime(ev.date);
                     return (
-                      <div key={ev.id} draggable onDragStart={e => handleEventDragStart(e, ev)} onDragEnd={handleDragEnd} onClick={e => e.stopPropagation()}
-                        style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, cursor: "grab", opacity: draggingEvent?.id === ev.id ? 0.4 : 1 }}>
-                        <div className="cal-event-label" style={{ fontSize: 9, fontWeight: 700, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div
+                        key={ev.id}
+                        draggable
+                        onDragStart={e => handleEventDragStart(e, ev)}
+                        onDragEnd={handleDragEnd}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          background: memberColor(ev.memberId) + "33",
+                          borderLeft: `2px solid ${memberColor(ev.memberId)}`,
+                          borderRadius: "0 3px 3px 0",
+                          padding: "1px 3px",
+                          marginBottom: 2,
+                          cursor: "grab",
+                          opacity: draggingEvent?.id === ev.id ? 0.4 : 1
+                        }}
+                      >
+                        <div style={{
+                          fontSize: 9, fontWeight: 700,
+                          color: memberColor(ev.memberId),
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          lineHeight: 1.3
+                        }}>
                           {t ? `${t} ` : ""}{ev.title}
                         </div>
-                        {mb && (
-                          <div style={{ fontSize: 8, color: memberColor(ev.memberId), opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {mb.name.split(" ")[0]}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
 
-                  {/* FIX: Show due cards — up to 2 in calendar cell, respecting space */}
+                  {/* Due cards (fill remaining slots up to 2 total) */}
                   {dueCards.slice(0, Math.max(0, 2 - evs.length)).map(c => {
-                    const cardMs = members.filter(m => toArr(c.members).includes(m.id));
-                    const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) : null;
+                    const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0, 5) : null;
                     return (
-                      <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2 }}>
-                        <div className="cal-event-label" style={{ fontSize: 9, fontWeight: 700, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div
+                        key={c.id}
+                        style={{
+                          background: T.amber + "22",
+                          borderLeft: `2px solid ${T.amber}`,
+                          borderRadius: "0 3px 3px 0",
+                          padding: "1px 3px",
+                          marginBottom: 2
+                        }}
+                      >
+                        <div style={{
+                          fontSize: 9, fontWeight: 700, color: T.amber,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          lineHeight: 1.3
+                        }}>
                           {t ? `${t} ` : ""}⭐ {c.title}
                         </div>
-                        {cardMs.length > 0 && (
-                          <div style={{ fontSize: 8, color: T.amber, opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {cardMs.map(m => m.name.split(" ")[0]).join(", ")}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
 
-                  {/* Overflow indicator */}
-                  {totalItems > 2 && <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700 }}>+{totalItems - 2}</div>}
+                  {/* Overflow count */}
+                  {totalItems > 2 && (
+                    <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, lineHeight: 1 }}>
+                      +{totalItems - 2}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2280,7 +2421,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
                     {t && <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>🕐 {t}</span>}
                   </div>
                 </div>
-                {/* FIX: Better member display in detail panel */}
                 {mb && (
                   <div className="cal-detail-member" style={{ display: "flex", alignItems: "center", gap: 8, background: T.bg3, borderRadius: 10, padding: "6px 10px", flexShrink: 0 }}>
                     <Avatar member={mb} size={32} showOnline presence={presence} />
@@ -2295,7 +2435,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
             );
           })}
 
-          {/* FIX: Show ALL due cards for selected day with proper member display */}
+          {/* Due cards for selected day */}
           {allCards.filter(c => c.due && c.due.startsWith(datePfx(sel))).map(c => {
             const cardMs = members.filter(m => toArr(c.members).includes(m.id));
             const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) : null;
@@ -2312,7 +2452,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
                     {c.completed && <span style={{ ...s.badge(T.green), fontSize: 9 }}>✅ Concluído</span>}
                   </div>
                 </div>
-                {/* FIX: Show members with name+role in detail — not squished avatar on the far right */}
                 {cardMs.length > 0 && (
                   <div className="cal-detail-member" style={{ display: "flex", alignItems: "center", gap: 6, background: T.bg3, borderRadius: 10, padding: "6px 10px", flexShrink: 0 }}>
                     {cardMs.length === 1 ? (
@@ -2393,7 +2532,6 @@ export default function App() {
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
 
-  // FIX: Global presence state from Firebase (shared across all users)
   const presence = usePresence();
 
   const setMyCardsMode = (val) => {
@@ -2401,7 +2539,6 @@ export default function App() {
     localStorage.setItem(MY_CARDS_KEY, val ? "1" : "0");
   };
 
-  // FIX: Write online status to Firebase
   useOnlinePresence(currentUser?.id);
 
   useEffect(() => {
@@ -2502,7 +2639,6 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ position: "relative" }}>
                   <Avatar member={currentUser} size={32} presence={presence} />
-                  {/* FIX: Online dot reads from Firebase presence */}
                   <div style={{ position: "absolute", bottom: 0, right: 0, width: 9, height: 9, borderRadius: "50%", background: T.green, border: `2px solid ${T.bg1}`, animation: "pulse 2s infinite" }} />
                 </div>
                 <div className="header-user-name" style={{ lineHeight: 1.2 }}>
