@@ -62,6 +62,7 @@ const GLOBAL_STYLE = `
     .card-modal-right { width: 100% !important; border-right: none !important; border-top: 1px solid #2e2e3a; }
     .users-grid { grid-template-columns: 1fr !important; }
     .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
+    .top-bottom-grid { grid-template-columns: 1fr !important; }
   }
 `;
 
@@ -158,16 +159,16 @@ const INIT_EVENTS = [
 
 const INIT_SOCIAL = {
   instagram:[
-    { id:"s1",title:"Lançamento Produto X",thumbnail:"🎨",likes:4320,comments:218,shares:891,views:28400,date:"2026-05-10",type:"Reels" },
-    { id:"s2",title:"Campanha Verão 2026",thumbnail:"☀️",likes:2870,comments:143,shares:412,views:15600,date:"2026-05-07",type:"Post" },
+    { id:"s1",title:"Lançamento Produto X",thumbnail:"🎨",likes:4320,comments:218,shares:891,views:28400,saves:1200,date:"2026-05-10",type:"Reels" },
+    { id:"s2",title:"Campanha Verão 2026",thumbnail:"☀️",likes:2870,comments:143,shares:412,views:15600,saves:540,date:"2026-05-07",type:"Post" },
   ],
   tiktok:[
-    { id:"s3",title:"Tutorial rápido 60s",thumbnail:"⚡",likes:18200,comments:934,shares:4210,views:142000,date:"2026-05-09",type:"Vídeo" },
-    { id:"s4",title:"Trend da semana",thumbnail:"🔥",likes:31400,comments:1620,shares:8900,views:287000,date:"2026-05-06",type:"Vídeo" },
+    { id:"s3",title:"Tutorial rápido 60s",thumbnail:"⚡",likes:18200,comments:934,shares:4210,views:142000,saves:3200,date:"2026-05-09",type:"Vídeo" },
+    { id:"s4",title:"Trend da semana",thumbnail:"🔥",likes:31400,comments:1620,shares:8900,views:287000,saves:6700,date:"2026-05-06",type:"Vídeo" },
   ],
   youtube:[
-    { id:"s5",title:"Como usar Produto X completo",thumbnail:"📹",likes:3420,comments:287,shares:541,views:48200,date:"2026-05-08",type:"Vídeo" },
-    { id:"s6",title:"Podcast Ep.12 – Marketing",thumbnail:"🎙️",likes:2100,comments:198,shares:412,views:31500,date:"2026-04-28",type:"Podcast" },
+    { id:"s5",title:"Como usar Produto X completo",thumbnail:"📹",likes:3420,comments:287,shares:541,views:48200,saves:0,date:"2026-05-08",type:"Vídeo" },
+    { id:"s6",title:"Podcast Ep.12 – Marketing",thumbnail:"🎙️",likes:2100,comments:198,shares:412,views:31500,saves:0,date:"2026-04-28",type:"Podcast" },
   ],
 };
 
@@ -223,22 +224,17 @@ function isOnline(userId) {
 /* ─── AVATAR ─────────────────────────────────────────────── */
 function Avatar({ member, size = 28, style = {}, showOnline = false }) {
   const online = showOnline ? isOnline(member.id) : false;
-  const content = member.photo ? (
+  return member.photo ? (
     <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
       <img src={member.photo} alt={member.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      {showOnline && (
-        <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />
-      )}
+      {showOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />}
     </div>
   ) : (
     <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
       {member.avatar || initials(member.name)}
-      {showOnline && (
-        <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />
-      )}
+      {showOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />}
     </div>
   );
-  return content;
 }
 
 function Pill({ label, color }) {
@@ -275,14 +271,7 @@ function Toast({ toast }) {
     return () => clearTimeout(t1);
   }, []);
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 14,
-      background: T.bg2, border: `1px solid ${T.green}55`,
-      borderRadius: 14, padding: "14px 20px",
-      boxShadow: "0 8px 32px #00000099",
-      animation: `${leaving ? "toastOut" : "toastIn"} .35s ease forwards`,
-      minWidth: 260, maxWidth: 340,
-    }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 14, background: T.bg2, border: `1px solid ${T.green}55`, borderRadius: 14, padding: "14px 20px", boxShadow: "0 8px 32px #00000099", animation: `${leaving ? "toastOut" : "toastIn"} .35s ease forwards`, minWidth: 260, maxWidth: 340 }}>
       <div style={{ width: 40, height: 40, borderRadius: "50%", background: T.green + "22", border: `2px solid ${T.green}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>✅</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.text }}>Tarefa concluída!</p>
@@ -790,11 +779,9 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
         position: "relative", overflow: "hidden",
       }}>
       {isCompleted && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />}
-
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          {/* Move up/down buttons */}
           <button title="Mover para cima" onClick={e => { e.stopPropagation(); onMoveUp(card.id, colId); }} disabled={isFirst}
             style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", color: isFirst ? T.textMuted + "44" : T.textMuted, fontSize: 11, padding: "0 1px", lineHeight: 1 }}>▲</button>
           <button title="Mover para baixo" onClick={e => { e.stopPropagation(); onMoveDown(card.id, colId); }} disabled={isLast}
@@ -881,14 +868,9 @@ function QuickAdd({ colId, taskTypes, currentUser, onAdd }) {
 
   return (
     <div style={{ background: T.bg3, borderRadius: 8, border: `1.5px solid ${T.accent}`, padding: "8px" }}>
-      <input
-        ref={inputRef}
-        value={text}
-        onChange={e => setText(e.target.value)}
+      <input ref={inputRef} value={text} onChange={e => setText(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setOpen(false); }}
-        placeholder="Título do card... (Enter para criar)"
-        style={s.input({ fontSize: 13, background: T.bg2, marginBottom: 8 })}
-      />
+        placeholder="Título do card... (Enter para criar)" style={s.input({ fontSize: 13, background: T.bg2, marginBottom: 8 })} />
       <div style={{ display: "flex", gap: 6 }}>
         <button onClick={handleAdd} style={s.btn(T.accent, { flex: 1, fontSize: 12, padding: "5px 0" })}>Criar</button>
         <button onClick={() => setOpen(false)} style={s.btn(T.bg4, { color: T.text, fontSize: 12, padding: "5px 10px" })}>✕</button>
@@ -914,8 +896,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   }, []);
 
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-  // Effective filter: myCardsMode overrides filterMember
   const effectiveFilter = myCardsMode ? currentUser?.id : filterMember;
 
   const filterCard = card => {
@@ -924,7 +904,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     return true;
   };
 
-  // Sort cards in a column based on colSortMap
   const getSortedCards = (col) => {
     const sortBy = colSortMap[col.id];
     const cards = [...col.cards];
@@ -938,14 +917,12 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     return cards;
   };
 
-  // Hide columns that have 0 visible cards when filter is active
   const visibleCols = (effectiveFilter && effectiveFilter !== "all") || search
     ? sortedCols.filter(col => col.cards.some(filterCard))
     : sortedCols;
 
   const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
 
-  // Move card up/down within its column
   const handleMoveUp = useCallback((cardId, colId) => {
     const newCols = columns.map(col => {
       if (col.id !== colId) return col;
@@ -1042,48 +1019,33 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   return (
     <div>
-      {/* ── TOOLBAR REDESENHADA ── */}
-      <div className="board-toolbar" style={{
-        display: "flex", gap: 8, marginBottom: 16, alignItems: "center",
-        flexWrap: "wrap", background: T.bg1, borderRadius: 14,
-        padding: "10px 14px", border: `1px solid ${T.border}`,
-      }}>
-        {/* Busca */}
+      <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap", background: T.bg1, borderRadius: 14, padding: "10px 14px", border: `1px solid ${T.border}` }}>
         <div style={{ position: "relative", flex: 1, minWidth: 130, maxWidth: 210 }}>
           <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", color: T.textMuted }}>🔍</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." style={s.input({ paddingLeft: 30, background: T.bg2, fontSize: 13 })} />
         </div>
-
-        {/* Filtro de membro (desabilitado no modo myCards) */}
         {!myCardsMode && (
           <select value={filterMember} onChange={e => setFilterMember(e.target.value)} style={s.select({ maxWidth: 170, background: T.bg2, fontSize: 13 })}>
             <option value="all">👥 Todos</option>
             {members.map(m => <option key={m.id} value={m.id}>{m.name.split(" ")[0]}</option>)}
           </select>
         )}
-
-        {/* Breadcrumb de filtro ativo */}
         {(activeFilterName || search) && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 20, padding: "4px 10px", animation: "fadeIn .2s ease" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.accent, display: "inline-block", animation: "pulse 2s infinite" }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: T.accent }}>
-              {activeFilterName ? `${activeFilterName}` : ""}{activeFilterName && search ? " · " : ""}{search ? `"${search}"` : ""}
-              {" · "}{totalVisible} card{totalVisible !== 1 ? "s" : ""}
+              {activeFilterName ? `${activeFilterName}` : ""}{activeFilterName && search ? " · " : ""}{search ? `"${search}"` : ""}{" · "}{totalVisible} card{totalVisible !== 1 ? "s" : ""}
             </span>
             <button onClick={clearFilters} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 14, padding: 0, lineHeight: 1, marginLeft: 2 }}>×</button>
           </div>
         )}
-
         <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
           <button onClick={() => { const firstColId = visibleCols[0]?.id || sortedCols[0]?.id; if (!firstColId) return; setModal({ card: null, colId: firstColId }); }} style={s.btn(T.accent, { fontSize: 13 })}>+ Card</button>
           <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text, fontSize: 13 })}>+ Coluna</button>
         </div>
       </div>
 
-      {/* ── BOARD COLUMNS ── */}
       <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
-
-        {/* Empty state when filter hides all cols */}
         {visibleCols.length === 0 && (effectiveFilter && effectiveFilter !== "all" || search) && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 12, background: T.bg1, borderRadius: 16, border: `1px dashed ${T.border}`, flex: 1, minWidth: 300 }}>
             <span style={{ fontSize: 36 }}>🔍</span>
@@ -1092,18 +1054,14 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
             <button onClick={clearFilters} style={s.btn(T.bg3, { color: T.textSub, fontSize: 12, marginTop: 4 })}>Ver todos →</button>
           </div>
         )}
-
         {visibleCols.map(col => {
           const sortBy = colSortMap[col.id] || "manual";
           const sortedCards = getSortedCards(col);
           const visibleCards = sortedCards.filter(filterCard);
           const colPts = col.cards.reduce((a, c) => a + (c.points || 0), 0);
-
           return (
             <div key={col.id} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, col.id)}
               style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1px solid ${T.border}`, padding: 10, flexShrink: 0 }}>
-
-              {/* Column header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
@@ -1116,8 +1074,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   <button onClick={() => setModal({ card: null, colId: col.id })} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
-
-              {/* Column meta: points + sort */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
                 <span style={{ fontSize: 10, color: T.amber, fontWeight: 700 }}>⭐ {colPts} pts</span>
                 <select value={sortBy} onChange={e => setColSortMap(m => ({ ...m, [col.id]: e.target.value }))}
@@ -1128,8 +1084,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   <option value="priority">Prioridade</option>
                 </select>
               </div>
-
-              {/* Cards */}
               {visibleCards.map((card, idx) => (
                 <KanbanCard key={card.id} card={card} colId={col.id} members={members}
                   onOpen={(c, cid) => setModal({ card: c, colId: cid })}
@@ -1137,19 +1091,13 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
                   isFirst={idx === 0} isLast={idx === visibleCards.length - 1} />
               ))}
-
-              {visibleCards.length === 0 && (
-                <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>
-              )}
-
-              {/* Quick add inline */}
+              {visibleCards.length === 0 && <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>}
               <div style={{ marginTop: 4 }}>
                 <QuickAdd colId={col.id} taskTypes={taskTypes} currentUser={currentUser} onAdd={handleQuickAdd} />
               </div>
             </div>
           );
         })}
-
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
           <button onClick={() => setColModal({})}
             style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "12px 20px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
@@ -1298,7 +1246,6 @@ function AnalyticsTab({ columns, members }) {
   const priCounts = { facil: 0, medio: 0, dificil: 0, complexo: 0 };
   filtered.forEach(c => { if (priCounts[c.priority] !== undefined) priCounts[c.priority]++; });
 
-  // Sparkline: cards concluídos por semana (últimas 8 semanas)
   const getWeekSparkline = (memberId) => {
     const weeks = 8;
     const now = new Date();
@@ -1351,18 +1298,14 @@ function AnalyticsTab({ columns, members }) {
         ))}
       </div>
 
-      {/* Sparkline por membro */}
       <div style={s.card({ padding: 18, marginBottom: 16 })}>
         <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: T.text }}>📈 Ritmo de conclusão — últimas 8 semanas</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Equipe geral */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: T.accentDim, border: `2px solid ${T.accent}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>👥</div>
             <span style={{ fontSize: 12, fontWeight: 700, color: T.text, minWidth: 90 }}>Equipe</span>
             <Sparkline data={getWeekSparkline("all")} color={T.accent} width={120} height={28} />
-            <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4 }}>
-              {getWeekSparkline("all").reduce((a, b) => a + b, 0)} concluídas
-            </span>
+            <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4 }}>{getWeekSparkline("all").reduce((a, b) => a + b, 0)} concluídas</span>
           </div>
           {members.map(m => {
             const spark = getWeekSparkline(m.id);
@@ -1505,24 +1448,172 @@ function CSVGuide({ onClose }) {
   );
 }
 
-/* ─── SOCIAL TAB ─────────────────────────────────────────── */
+/* ─── SOCIAL TAB — HELPERS ───────────────────────────────── */
 const PLATFORM_COLORS = { instagram: "#E1306C", tiktok: "#ff2d55", youtube: "#FF0000" };
 const PLATFORM_ICONS  = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
+const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
+function MiniBar({ value, max, color }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div style={{ flex: 1, background: color + "22", borderRadius: 4, height: 6, overflow: "hidden" }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4, transition: "width .5s" }} />
+    </div>
+  );
+}
+
+function SocialSparkline({ data, color = "#7c6af7", width = 100, height = 36 }) {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 8) - 4;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const last = data[data.length - 1];
+  const prev = data[data.length - 2];
+  const lx = width;
+  const ly = height - ((last - min) / range) * (height - 8) - 4;
+  return (
+    <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`sg${color.replace(/[^a-zA-Z0-9]/g,"")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <polygon points={`0,${height} ${pts} ${width},${height}`} fill={`url(#sg${color.replace(/[^a-zA-Z0-9]/g,"")})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+      <circle cx={lx} cy={ly} r={3} fill={color} />
+    </svg>
+  );
+}
+
+function TrendBadge({ current, previous }) {
+  if (!previous && previous !== 0) return null;
+  const pct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+  const up = pct >= 0;
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: up ? T.green : T.red, background: up ? T.green + "22" : T.red + "22", border: `1px solid ${up ? T.green : T.red}44`, borderRadius: 20, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+function GaugeRing({ value, max, color, size = 64, label }) {
+  const pct = max > 0 ? Math.min(value / max, 1) : 0;
+  const r = (size - 10) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = pct * circ;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color+"22"} strokeWidth={8}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={8}
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            style={{ transition: "stroke-dasharray .6s ease" }}/>
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: size > 60 ? 13 : 11, fontWeight: 900, color, lineHeight: 1 }}>{fmtNum(value)}</span>
+        </div>
+      </div>
+      <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textAlign: "center" }}>{label}</span>
+    </div>
+  );
+}
+
+/* ─── SOCIAL TAB ─────────────────────────────────────────── */
 function SocialTab({ data, updateData }) {
   const [platform, setPlatform] = useState("instagram");
+  const [selMonth, setSelMonth] = useState(null);
+  const [growthMetric, setGrowthMetric] = useState("views");
   const [sortBy, setSortBy] = useState("views");
   const [guide, setGuide] = useState(false);
-
   const [csvError, setCsvError] = useState(null);
   const [csvPreview, setCsvPreview] = useState(null);
 
-  // Parser CSV completo — suporta aspas, campos com \n internos e BOM UTF-8
-  const parseCSV = (text, plat) => {
-    // Remove BOM e normaliza quebras de linha
-    const raw = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const pc = PLATFORM_COLORS[platform];
 
-    // Detecta separador pela primeira linha (ignora conteúdo entre aspas)
+  const allPosts = React.useMemo(() => toArr(data[platform]), [data, platform]);
+
+  const availableMonths = React.useMemo(() => {
+    const set = new Set();
+    allPosts.forEach(p => { if (p.date) set.add(p.date.slice(0, 7)); });
+    return [...set].sort();
+  }, [allPosts]);
+
+  const monthPosts = React.useMemo(() => {
+    if (!selMonth) return allPosts;
+    return allPosts.filter(p => p.date && p.date.startsWith(selMonth));
+  }, [allPosts, selMonth]);
+
+  const sortedPosts = React.useMemo(
+    () => [...monthPosts].sort((a, b) => b[sortBy] - a[sortBy]),
+    [monthPosts, sortBy]
+  );
+
+  const totals = React.useMemo(() => monthPosts.reduce(
+    (acc, p) => ({ views: acc.views + (p.views||0), likes: acc.likes + (p.likes||0), comments: acc.comments + (p.comments||0), shares: acc.shares + (p.shares||0), saves: acc.saves + (p.saves||0) }),
+    { views: 0, likes: 0, comments: 0, shares: 0, saves: 0 }
+  ), [monthPosts]);
+
+  const n = monthPosts.length || 1;
+  const avgs = {
+    views:    Math.round(totals.views    / n),
+    likes:    Math.round(totals.likes    / n),
+    comments: Math.round(totals.comments / n),
+    shares:   Math.round(totals.shares   / n),
+    saves:    Math.round(totals.saves    / n),
+  };
+
+  const avgEngRate = monthPosts.length > 0
+    ? (monthPosts.reduce((a, p) => {
+        const eng = (p.likes||0) + (p.comments||0) + (p.shares||0);
+        return a + (p.views > 0 ? (eng / p.views) * 100 : 0);
+      }, 0) / monthPosts.length).toFixed(1)
+    : "0.0";
+
+  const ranked = [...monthPosts].sort((a, b) => b[sortBy] - a[sortBy]);
+  const top3    = ranked.slice(0, 3);
+  const bottom3 = ranked.length > 3 ? ranked.slice(-3).reverse() : [];
+
+  const growthSeries = React.useMemo(() => {
+    return availableMonths.map(ym => {
+      const ps = allPosts.filter(p => p.date && p.date.startsWith(ym));
+      const sum = ps.reduce((a, p) => a + (p[growthMetric] || 0), 0);
+      return { ym, value: ps.length > 0 ? Math.round(sum / ps.length) : 0, posts: ps.length };
+    });
+  }, [allPosts, growthMetric, availableMonths]);
+
+  const maxGrowth = Math.max(...growthSeries.map(g => g.value), 1);
+  const sparkData = growthSeries.map(g => g.value);
+
+  const monthLabel = (ym) => {
+    if (!ym) return null;
+    const [yr, mo] = ym.split("-");
+    return `${MONTHS_PT[parseInt(mo, 10) - 1]} ${yr}`;
+  };
+
+  const METRIC_OPTS = [
+    { id: "views",    label: "Visualizações", icon: "👁️",  color: T.blue  },
+    { id: "likes",    label: "Curtidas",      icon: "❤️",  color: pc      },
+    { id: "comments", label: "Comentários",   icon: "💬",  color: T.teal  },
+    { id: "shares",   label: "Compartilhados",icon: "📤",  color: T.green },
+    { id: "saves",    label: "Salvamentos",   icon: "🔖",  color: T.amber },
+  ];
+
+  const metricColor = (id) => {
+    if (id === "likes") return pc;
+    return METRIC_OPTS.find(m => m.id === id)?.color || T.accent;
+  };
+  const metricIcon  = (id) => METRIC_OPTS.find(m => m.id === id)?.icon || "📊";
+
+  // CSV parser
+  const parseCSV = (text, plat) => {
+    const raw = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const firstLine = raw.split("\n")[0] || "";
     let sc = 0, ss = 0, inQd = false;
     for (const ch of firstLine) {
@@ -1531,14 +1622,12 @@ function SocialTab({ data, updateData }) {
       if (!inQd && ch === ";") ss++;
     }
     const sep = ss > sc ? ";" : ",";
-
-    // Tokenizer completo que suporta campos com newlines internos e aspas duplas escapadas
     const records = [];
     let cur = "", fields = [], inQuote = false;
     for (let i = 0; i < raw.length; i++) {
       const ch = raw[i];
       if (ch === '"') {
-        if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; } // "" = aspas literal
+        if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; }
         else inQuote = !inQuote;
       } else if (!inQuote && ch === sep) {
         fields.push(cur); cur = "";
@@ -1546,254 +1635,353 @@ function SocialTab({ data, updateData }) {
         fields.push(cur); cur = "";
         if (fields.some(f => f.trim())) records.push(fields);
         fields = [];
-      } else {
-        cur += ch;
-      }
+      } else { cur += ch; }
     }
     if (fields.length || cur) { fields.push(cur); if (fields.some(f => f.trim())) records.push(fields); }
-
     if (records.length < 2) return { rows: [], headers: [], sep, error: "Arquivo vazio ou sem dados suficientes." };
-
-    // Headers normalizados
     const headers = records[0].map(h => h.trim().toLowerCase());
     const dataRows = records.slice(1);
-
-    // Helper: acha índice da PRIMEIRA coluna que contenha algum dos termos (busca exata primeiro, depois parcial)
     const findIdx = (exactTerms, partialTerms) => {
-      // Tenta match exato primeiro
       const ei = headers.findIndex(h => exactTerms.some(k => h === k));
       if (ei >= 0) return ei;
-      // Depois parcial
       return headers.findIndex(h => (partialTerms || exactTerms).some(k => h.includes(k)));
     };
-
-    // Mapeamento de colunas — nomes reais do Meta Business Suite (Instagram)
-    const iPostId   = findIdx(["identificação do post", "post id", "media id"], []);
-    const iDesc     = findIdx(["descrição", "description", "caption", "legenda"], ["título", "title", "conteúdo", "content"]);
-    const iType     = findIdx(["tipo de post", "post type", "media type", "tipo"], []);
-    const iPubDate  = findIdx(["horário de publicação", "data de publicação", "published at", "post date", "posted at"], ["horário", "publicado", "created"]);
-    const iDataCol  = findIdx(["data"], []);  // coluna "Data" do Instagram: "Total" ou data específica
-    const iViews    = findIdx(["visualizações", "views", "plays", "reproduções", "video views"], ["visualiz", "impres"]);
-    const iReach    = findIdx(["alcance", "reach"], []);
-    const iLikes    = findIdx(["curtidas", "likes", "reações", "reactions"], ["curtida", "like", "reação"]);
-    const iShares   = findIdx(["compartilhamentos", "shares"], ["compartilh", "share"]);
-    const iComments = findIdx(["comentários", "comments"], ["comentar", "comment"]);
-    const iSaves    = findIdx(["salvamentos", "saves", "bookmarks"], ["salv", "save"]);
-
+    const iDesc     = findIdx(["descrição","description","caption","legenda"], ["título","title","conteúdo"]);
+    const iType     = findIdx(["tipo de post","post type","media type","tipo"], []);
+    const iPubDate  = findIdx(["horário de publicação","data de publicação","published at","post date"], ["horário","publicado","created"]);
+    const iDataCol  = findIdx(["data"], []);
+    const iViews    = findIdx(["visualizações","views","plays","reproduções","video views"], ["visualiz","impres"]);
+    const iReach    = findIdx(["alcance","reach"], []);
+    const iLikes    = findIdx(["curtidas","likes","reações","reactions"], ["curtida","like","reação"]);
+    const iShares   = findIdx(["compartilhamentos","shares"], ["compartilh","share"]);
+    const iComments = findIdx(["comentários","comments"], ["comentar","comment"]);
+    const iSaves    = findIdx(["salvamentos","saves","bookmarks"], ["salv","save"]);
     const get = (row, i) => (i >= 0 && i < row.length) ? row[i].trim() : "";
-
     const parseNum = (val) => {
-      const s = String(val || "").trim().replace(/\s/g, "");
-      if (!s) return 0;
-      // Formato BR: 1.234,56 → remove pontos, troca vírgula por ponto
-      if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0);
-      // Formato EN: 1,234.56 → remove vírgulas
-      if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/,/g, "")) || 0);
-      return Math.round(parseFloat(s.replace(/[^\d.]/g, "")) || 0);
+      const s2 = String(val || "").trim().replace(/\s/g, "");
+      if (!s2) return 0;
+      if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s2)) return Math.round(parseFloat(s2.replace(/\./g, "").replace(",", ".")) || 0);
+      if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s2)) return Math.round(parseFloat(s2.replace(/,/g, "")) || 0);
+      return Math.round(parseFloat(s2.replace(/[^\d.]/g, "")) || 0);
     };
-
-    // Instagram: filtra apenas linhas onde "Data" = "Total" (acumulado do post)
-    // Se não existir essa coluna ou valor, usa todas
     const hasTotalRows = iDataCol >= 0 && dataRows.some(r => get(r, iDataCol).toLowerCase() === "total");
-    const filtered = hasTotalRows
-      ? dataRows.filter(r => get(r, iDataCol).toLowerCase() === "total")
-      : dataRows;
-
-    const rows = filtered.map((row, idx) => {
-      // Título: usa Descrição (limpa newlines e hashtags excessivos, limita 80 chars)
+    const filtered2 = hasTotalRows ? dataRows.filter(r => get(r, iDataCol).toLowerCase() === "total") : dataRows;
+    const rows = filtered2.map((row, idx) => {
       let title = get(row, iDesc);
-      if (!title && iPostId >= 0) title = get(row, iPostId);
       if (!title) title = `Post ${idx + 1}`;
-      // Remove quebras de linha internas, limpa espaços e limita
       title = title.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-      // Se tiver hashtags, pega só o texto antes delas
       const hashIdx = title.indexOf(" #");
       if (hashIdx > 20) title = title.slice(0, hashIdx).trim();
       title = title.slice(0, 80) || `Post ${idx + 1}`;
-
       const views    = parseNum(get(row, iViews)) || parseNum(get(row, iReach));
       const likes    = parseNum(get(row, iLikes));
       const comments = parseNum(get(row, iComments));
       const shares   = parseNum(get(row, iShares));
       const saves    = parseNum(get(row, iSaves));
-
-      // Converte data MM/DD/YYYY HH:mm → YYYY-MM-DD
       let date = get(row, iPubDate) || new Date().toISOString().slice(0, 10);
       const mdy = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (mdy) date = `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
+      if (mdy) date = `${mdy[3]}-${mdy[1].padStart(2,"0")}-${mdy[2].padStart(2,"0")}`;
       else date = date.slice(0, 10);
-
-      // Tipo de post
       const rawType = get(row, iType);
-      const type = /reel/i.test(rawType) ? "Reels"
-        : /story|storie/i.test(rawType) ? "Story"
-        : /live/i.test(rawType) ? "Live"
-        : /v[íi]deo|video/i.test(rawType) ? "Vídeo"
-        : "Post";
-
+      const type = /reel/i.test(rawType) ? "Reels" : /story|storie/i.test(rawType) ? "Story" : /live/i.test(rawType) ? "Live" : /v[íi]deo|video/i.test(rawType) ? "Vídeo" : "Post";
       return { id: uid(), title, thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, saves, date, type };
     }).filter(r => r.title.length > 0);
-
     return { rows, headers, sep, error: null };
   };
 
   const handleCSV = e => {
     const file = e.target.files[0];
     if (!file) return;
-    setCsvError(null);
-    setCsvPreview(null);
+    setCsvError(null); setCsvPreview(null);
     const reader = new FileReader();
     reader.onload = ev => {
       try {
         const result = parseCSV(ev.target.result, platform);
         if (result.error) { setCsvError(result.error); return; }
-        if (!result.rows.length) {
-          setCsvError("Nenhuma linha válida encontrada. Verifique se o arquivo tem conteúdo.");
-          return;
-        }
+        if (!result.rows.length) { setCsvError("Nenhuma linha válida encontrada."); return; }
         updateData({ ...data, [platform]: [...toArr(data[platform]), ...result.rows] });
-        setCsvPreview({ count: result.rows.length, sep: result.sep === "\t" ? "TAB" : result.sep, sample: result.rows[0]?.title?.slice(0, 60) || "" });
+        setCsvPreview({ count: result.rows.length, sample: result.rows[0]?.title?.slice(0,60) || "" });
         setTimeout(() => setCsvPreview(null), 7000);
-      } catch (err) {
-        setCsvError("Erro inesperado: " + err.message);
-      }
+      } catch (err) { setCsvError("Erro: " + err.message); }
     };
     reader.onerror = () => setCsvError("Não foi possível ler o arquivo.");
     reader.readAsText(file, "UTF-8");
     e.target.value = "";
   };
 
-  const posts = [...toArr(data[platform])].sort((a, b) => b[sortBy] - a[sortBy]);
-  const totals = posts.reduce((acc, p) => ({ views: acc.views + p.views, likes: acc.likes + p.likes, comments: acc.comments + p.comments, shares: acc.shares + p.shares }), { views: 0, likes: 0, comments: 0, shares: 0 });
-  const pc = PLATFORM_COLORS[platform];
-
   return (
     <div>
+      {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.text }}>Análise de Conteúdo</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 130 })}>
-            {["views","likes","comments","shares"].map(sv => <option key={sv} value={sv}>{sv.charAt(0).toUpperCase() + sv.slice(1)}</option>)}
-          </select>
           <button onClick={() => setGuide(true)} style={s.btn(T.bg4, { color: T.textSub, fontSize: 12 })}>📖 Exportar</button>
           <label style={{ ...s.btn(T.teal, { cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }), userSelect: "none" }}>
             📥 CSV <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display: "none" }} />
           </label>
-          {toArr(data[platform]).length > 0 && (
-            <button
-              onClick={() => {
-                if (window.confirm(`Excluir todos os ${toArr(data[platform]).length} posts de ${platform.charAt(0).toUpperCase() + platform.slice(1)}?`)) {
-                  updateData({ ...data, [platform]: [] });
-                  setCsvPreview(null);
-                  setCsvError(null);
-                }
-              }}
-              style={s.btn(T.redDim, { color: T.red, fontSize: 12, display: "flex", alignItems: "center", gap: 5 })}
-            >
-              🗑️ Limpar todos
-            </button>
+          {allPosts.length > 0 && (
+            <button onClick={() => { if (window.confirm(`Excluir todos os posts de ${platform}?`)) { updateData({ ...data, [platform]: [] }); setSelMonth(null); }}}
+              style={s.btn(T.redDim, { color: T.red, fontSize: 12 })}>🗑️ Limpar</button>
           )}
         </div>
       </div>
-      {/* CSV error feedback */}
+
+      {/* CSV FEEDBACK */}
       {csvError && (
         <div style={{ background: T.redDim, border: `1px solid ${T.red}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.red }}>Erro ao importar CSV</p>
             <p style={{ margin: 0, fontSize: 12, color: T.textSub }}>{csvError}</p>
-            <p style={{ margin: "6px 0 0", fontSize: 11, color: T.textMuted }}>Dica: o arquivo precisa ter pelo menos 2 linhas (cabeçalho + dados). Qualquer separador funciona (vírgula, ponto-e-vírgula, tab).</p>
           </div>
-          <button onClick={() => setCsvError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 18, padding: 0, flexShrink: 0 }}>×</button>
+          <button onClick={() => setCsvError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 18, padding: 0 }}>×</button>
         </div>
       )}
-
-      {/* CSV success feedback */}
       {csvPreview && (
         <div style={{ background: T.greenDim, border: `1px solid ${T.green}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 16 }}>✅</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.green }}>{csvPreview.count} itens importados com sucesso!</p>
-            <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>
-              Primeiro post: <strong style={{ color: T.textSub }}>{csvPreview.sample}</strong>
-            </p>
+          <div>
+            <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.green }}>{csvPreview.count} itens importados!</p>
+            <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>Primeiro: <strong style={{ color: T.textSub }}>{csvPreview.sample}</strong></p>
           </div>
         </div>
       )}
 
-      {/* Instrução de formato CSV */}
-      <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
-        <p style={{ margin: 0, fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
-          Aceita qualquer CSV — separador vírgula, <strong>;</strong> ou TAB. Colunas reconhecidas automaticamente:{" "}
-          <span style={{ color: T.textSub }}>título, views/visualizações, likes/curtidas, comentários, compartilhamentos, data</span>.
-          Se os nomes não baterem, os dados são importados pela ordem das colunas.
-        </p>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      {/* PLATAFORMAS */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         {["instagram","tiktok","youtube"].map(p => (
-          <button key={p} onClick={() => setPlatform(p)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s" }}>
+          <button key={p} onClick={() => { setPlatform(p); setSelMonth(null); }}
+            style={{ padding: "8px 20px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", background: platform === p ? PLATFORM_COLORS[p] : T.bg3, color: platform === p ? "#fff" : T.textMuted, transition: "all .2s", boxShadow: platform === p ? `0 4px 16px ${PLATFORM_COLORS[p]}44` : "none" }}>
             {PLATFORM_ICONS[p]} {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
       </div>
-      <div className="social-kpi" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
-        {[["👁️ Views", totals.views, "#fff"],["❤️ Curtidas", totals.likes, pc],["💬 Coments.", totals.comments, T.blue],["📤 Compart.", totals.shares, T.green]].map(([l, v, c]) => (
-          <div key={l} style={s.card({ padding: "12px 14px", textAlign: "center" })}>
-            <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 900, color: c }}>{fmtNum(v)}</p>
-            <p style={{ margin: 0, fontSize: 10, color: T.textMuted, fontWeight: 500 }}>{l}</p>
+
+      {/* CHIPS DE MÊS */}
+      {availableMonths.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: 1, textTransform: "uppercase" }}>Filtrar por mês</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button onClick={() => setSelMonth(null)}
+              style={{ padding: "5px 16px", borderRadius: 20, border: `1.5px solid ${!selMonth ? pc : T.border}`, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: !selMonth ? pc + "22" : T.bg3, color: !selMonth ? pc : T.textMuted, transition: "all .2s" }}>
+              Todos
+            </button>
+            {availableMonths.map(ym => {
+              const [yr, mo] = ym.split("-");
+              const active = selMonth === ym;
+              return (
+                <button key={ym} onClick={() => setSelMonth(active ? null : ym)}
+                  style={{ padding: "5px 16px", borderRadius: 20, border: `1.5px solid ${active ? pc : T.border}`, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit", background: active ? pc + "22" : T.bg3, color: active ? pc : T.textMuted, transition: "all .2s", boxShadow: active ? `0 2px 8px ${pc}33` : "none" }}>
+                  {MONTHS_PT[parseInt(mo,10)-1]} {yr}
+                </button>
+              );
+            })}
           </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {posts.length === 0 && (
-          <div style={s.card({ padding: 40, textAlign: "center" })}>
-            <p style={{ fontSize: 32, margin: "0 0 8px" }}>📂</p>
-            <p style={{ color: T.textMuted, fontSize: 14 }}>Importe um CSV para começar.</p>
-          </div>
-        )}
-        {posts.map((post, rank) => {
-          const eng = post.likes + post.comments + post.shares;
-          const engRate = post.views > 0 ? ((eng / post.views) * 100).toFixed(1) : "0.0";
-          return (
-            <div key={post.id} style={s.card({ padding: 16, display: "flex", gap: 14, alignItems: "flex-start" })}>
-              <div style={{ width: 60, height: 56, borderRadius: 10, background: `${pc}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, position: "relative" }}>
-                {post.thumbnail}
-                {rank === 0 && <div style={{ position: "absolute", top: -8, right: -8, background: T.amber, color: "#000", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900 }}>🏆</div>}
+        </div>
+      )}
+
+      {/* SEM DADOS */}
+      {allPosts.length === 0 && (
+        <div style={s.card({ padding: 48, textAlign: "center" })}>
+          <p style={{ fontSize: 36, margin: "0 0 10px" }}>📂</p>
+          <p style={{ color: T.textMuted, fontSize: 14, margin: "0 0 6px" }}>Nenhum dado para {platform}.</p>
+          <p style={{ color: T.textMuted, fontSize: 12, margin: 0 }}>Importe um CSV para começar.</p>
+        </div>
+      )}
+
+      {allPosts.length > 0 && (
+        <>
+          {/* KPI GAUGES — médias */}
+          <div style={s.card({ padding: "18px 20px", marginBottom: 16 })}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>
+                {selMonth ? `📊 ${monthLabel(selMonth)} — ${monthPosts.length} post${monthPosts.length !== 1 ? "s" : ""}` : `📊 Total — ${allPosts.length} posts`}
+              </h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: pc, background: pc+"22", borderRadius: 20, padding: "4px 12px", border: `1px solid ${pc}44` }}>
+                  Eng. médio: {avgEngRate}%
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.amber, background: T.amberDim, borderRadius: 20, padding: "4px 12px", border: `1px solid ${T.amber}44` }}>
+                  👁️ {fmtNum(totals.views)} views totais
+                </span>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Pill label={post.type} color={pc} /><span style={{ fontSize: 11, color: T.textMuted }}>📅 {post.date}</span></div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>{fmtNum(post.views)}</p>
-                    <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>views</p>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-                  {[["❤️", post.likes,"Curtidas"],["💬", post.comments,"Coments."],["📤", post.shares,"Compart."],["🔖", post.saves||0,"Salvam."]].map(([icon, val, label]) => (
-                    <div key={label} style={{ textAlign: "center" }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{fmtNum(val)}</p>
-                      <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{icon} {label}</p>
-                    </div>
-                  ))}
-                  <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}%</p>
-                    <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>Eng.</p>
-                  </div>
-                </div>
-                <div style={{ background: T.bg3, borderRadius: 99, height: 4 }}>
-                  <div style={{ background: pc, borderRadius: 99, height: 4, width: `${Math.min(+engRate / 15 * 100, 100)}%`, transition: "width .5s" }} />
-                </div>
-              </div>
-              <button onClick={() => updateData({ ...data, [platform]: toArr(data[platform]).filter(p => p.id !== post.id) })} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, padding: 0, flexShrink: 0 }}>🗑️</button>
             </div>
-          );
-        })}
-      </div>
+            <div style={{ display: "flex", justifyContent: "space-around", flexWrap: "wrap", gap: 20 }}>
+              {[
+                { id:"views",    label:"Média Views",    color: T.blue,  val: avgs.views    },
+                { id:"likes",    label:"Média Curtidas", color: pc,       val: avgs.likes    },
+                { id:"comments", label:"Média Coments.", color: T.teal,   val: avgs.comments },
+                { id:"shares",   label:"Média Compart.", color: T.green,  val: avgs.shares   },
+                { id:"saves",    label:"Média Salvam.",  color: T.amber,  val: avgs.saves    },
+              ].map(({ id, label, color, val }) => (
+                <GaugeRing key={id} value={val} max={Math.max(avgs.views, 1)} color={color} size={72} label={label} />
+              ))}
+            </div>
+          </div>
+
+          {/* GRÁFICO DE CRESCIMENTO */}
+          {availableMonths.length > 1 && (
+            <div style={s.card({ padding: 18, marginBottom: 16 })}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>📈 Crescimento por mês</h3>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {METRIC_OPTS.map(m => (
+                    <button key={m.id} onClick={() => setGrowthMetric(m.id)}
+                      style={{ padding: "4px 12px", borderRadius: 20, border: `1.5px solid ${growthMetric === m.id ? metricColor(m.id) : T.border}`, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "inherit", background: growthMetric === m.id ? metricColor(m.id)+"22" : T.bg3, color: growthMetric === m.id ? metricColor(m.id) : T.textMuted, transition: "all .2s" }}>
+                      {m.icon} {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sparkline area */}
+              <div style={{ marginBottom: 18, paddingLeft: 4 }}>
+                <SocialSparkline data={sparkData} color={metricColor(growthMetric)} width={Math.min(window.innerWidth - 80, 700)} height={56} />
+              </div>
+
+              {/* Barras mensais */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {growthSeries.map((g, i) => {
+                  const prev = growthSeries[i - 1];
+                  const [yr, mo] = g.ym.split("-");
+                  const isSel = selMonth === g.ym;
+                  return (
+                    <div key={g.ym} onClick={() => setSelMonth(isSel ? null : g.ym)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, cursor: "pointer", background: isSel ? metricColor(growthMetric)+"18" : "transparent", border: `1px solid ${isSel ? metricColor(growthMetric)+"55" : "transparent"}`, transition: "all .2s" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, minWidth: 36, flexShrink: 0 }}>{MONTHS_PT[parseInt(mo,10)-1]}</span>
+                      <MiniBar value={g.value} max={maxGrowth} color={metricColor(growthMetric)} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: T.text, minWidth: 52, textAlign: "right", flexShrink: 0 }}>{fmtNum(g.value)}</span>
+                      <span style={{ fontSize: 10, color: T.textMuted, minWidth: 28, flexShrink: 0 }}>({g.posts}p)</span>
+                      {prev && <TrendBadge current={g.value} previous={prev.value} />}
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ margin: "10px 0 0", fontSize: 11, color: T.textMuted }}>💡 Clique em um mês para filtrar todos os dados abaixo</p>
+            </div>
+          )}
+
+          {/* TOP 3 / PIORES 3 */}
+          {monthPosts.length >= 2 && (
+            <div className="top-bottom-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+              {/* TOP 3 */}
+              <div style={s.card({ padding: 16 })}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.green }}>🏆 Top 3 {selMonth ? monthLabel(selMonth) : ""}</h3>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                    style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, color: T.textMuted, fontSize: 10, fontFamily: "inherit", padding: "2px 20px 2px 6px", cursor: "pointer", outline: "none", colorScheme: "dark", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center" }}>
+                    {METRIC_OPTS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  </select>
+                </div>
+                {top3.map((p, i) => {
+                  const medals = ["🥇","🥈","🥉"];
+                  const eng = (p.likes||0) + (p.comments||0) + (p.shares||0);
+                  const engRate = p.views > 0 ? ((eng / p.views) * 100).toFixed(1) : "0.0";
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < 2 ? `1px solid ${T.border}` : "none" }}>
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{medals[i]}</span>
+                      <div style={{ width: 36, height: 34, borderRadius: 8, background: pc+"33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{p.thumbnail}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: "0 0 3px", fontSize: 12, fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</p>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: T.textMuted }}>{metricIcon(sortBy)} {fmtNum(p[sortBy] || 0)}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}% eng</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* PIORES 3 */}
+              <div style={s.card({ padding: 16 })}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 700, color: T.red }}>📉 Piores 3 {selMonth ? monthLabel(selMonth) : ""}</h3>
+                {bottom3.length === 0 && <p style={{ color: T.textMuted, fontSize: 12, textAlign: "center", padding: "20px 0" }}>Poucos posts para comparar.</p>}
+                {bottom3.map((p, i) => {
+                  const eng = (p.likes||0) + (p.comments||0) + (p.shares||0);
+                  const engRate = p.views > 0 ? ((eng / p.views) * 100).toFixed(1) : "0.0";
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < 2 ? `1px solid ${T.border}` : "none" }}>
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>🔻</span>
+                      <div style={{ width: 36, height: 34, borderRadius: 8, background: T.red+"22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{p.thumbnail}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: "0 0 3px", fontSize: 12, fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</p>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: T.textMuted }}>{metricIcon(sortBy)} {fmtNum(p[sortBy] || 0)}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}% eng</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* LISTA COMPLETA */}
+          <div style={{ ...s.card({ padding: "12px 16px", marginBottom: 10 }), display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>
+              Todos os posts {selMonth ? `— ${monthLabel(selMonth)}` : ""} ({sortedPosts.length})
+            </h3>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={s.select({ maxWidth: 160, fontSize: 12 })}>
+              {METRIC_OPTS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {sortedPosts.length === 0 && (
+              <div style={s.card({ padding: 32, textAlign: "center" })}>
+                <p style={{ color: T.textMuted, fontSize: 13, margin: 0 }}>Nenhum post neste mês.</p>
+              </div>
+            )}
+            {sortedPosts.map((post, rank) => {
+              const eng = (post.likes||0) + (post.comments||0) + (post.shares||0);
+              const engRate = post.views > 0 ? ((eng / post.views) * 100).toFixed(1) : "0.0";
+              return (
+                <div key={post.id} style={s.card({ padding: 14, display: "flex", gap: 12, alignItems: "flex-start" })}>
+                  <div style={{ width: 52, height: 48, borderRadius: 10, background: `${pc}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, position: "relative" }}>
+                    {post.thumbnail}
+                    {rank === 0 && selMonth && <div style={{ position: "absolute", top: -8, right: -8, background: T.amber, color: "#000", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900 }}>🏆</div>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: "0 0 3px", fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</p>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <Pill label={post.type} color={pc} />
+                          <span style={{ fontSize: 11, color: T.textMuted }}>📅 {post.date}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <p style={{ margin: 0, fontSize: 17, fontWeight: 900, color: T.text }}>{fmtNum(post.views)}</p>
+                        <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>views</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
+                      {[["❤️",post.likes,"Curtidas"],["💬",post.comments,"Coments."],["📤",post.shares,"Compart."],["🔖",post.saves||0,"Salvam."]].map(([icon,val,label]) => (
+                        <div key={label}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{fmtNum(val)} </span>
+                          <span style={{ fontSize: 10, color: T.textMuted }}>{icon} {label}</span>
+                        </div>
+                      ))}
+                      <div style={{ marginLeft: "auto" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: +engRate > 5 ? T.green : +engRate > 2 ? T.amber : T.red }}>{engRate}% </span>
+                        <span style={{ fontSize: 10, color: T.textMuted }}>eng.</span>
+                      </div>
+                    </div>
+                    <div style={{ background: T.bg3, borderRadius: 99, height: 4 }}>
+                      <div style={{ background: pc, borderRadius: 99, height: 4, width: `${Math.min(+engRate / 15 * 100, 100)}%`, transition: "width .5s" }} />
+                    </div>
+                  </div>
+                  <button onClick={() => updateData({ ...data, [platform]: toArr(data[platform]).filter(p => p.id !== post.id) })}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, padding: 0, flexShrink: 0 }}>🗑️</button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {guide && <CSVGuide onClose={() => setGuide(false)} />}
     </div>
   );
@@ -1805,7 +1993,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const [sel, setSel] = useState(null);
   const [addModal, setAddModal] = useState(null);
   const [form, setForm] = useState({ title: "", type: taskTypes[0] || "Post", memberId: "" });
-  // Drag state for calendar
   const [draggingEvent, setDraggingEvent] = useState(null);
   const [dragOverDay, setDragOverDay] = useState(null);
 
@@ -1821,24 +2008,15 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const allCards = columns.flatMap(c => c.cards);
   const memberColor = id => members.find(m => m.id === id)?.color || T.textMuted;
 
-  // Calendar drag handlers
-  const handleEventDragStart = (e, ev) => {
-    e.stopPropagation();
-    setDraggingEvent(ev);
-  };
-  const handleDayDragOver = (e, day) => {
-    e.preventDefault();
-    setDragOverDay(day);
-  };
+  const handleEventDragStart = (e, ev) => { e.stopPropagation(); setDraggingEvent(ev); };
+  const handleDayDragOver = (e, day) => { e.preventDefault(); setDragOverDay(day); };
   const handleDayDrop = (e, day) => {
     e.preventDefault();
     if (!draggingEvent) return;
     const newDate = dateStr(day);
     const updatedEvents = toArr(events).map(ev => ev.id === draggingEvent.id ? { ...ev, date: newDate } : ev);
     updateEvents(updatedEvents);
-    setDraggingEvent(null);
-    setDragOverDay(null);
-    setSel(day);
+    setDraggingEvent(null); setDragOverDay(null); setSel(day);
   };
   const handleDragEnd = () => { setDraggingEvent(null); setDragOverDay(null); };
 
@@ -1872,28 +2050,16 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
               const dueCards = allCards.filter(c => c.due === dateStr(day));
               const isSel = sel === day;
               const isDragOver = dragOverDay === day;
-
               return (
                 <div key={day}
                   onClick={() => setSel(day === sel ? null : day)}
                   onDragOver={e => handleDayDragOver(e, day)}
                   onDrop={e => handleDayDrop(e, day)}
                   onDragLeave={() => setDragOverDay(null)}
-                  style={{
-                    minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`,
-                    padding: "6px 4px", cursor: "pointer",
-                    background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2,
-                    border: isDragOver ? `2px solid ${T.accent}` : undefined,
-                    transition: "background .15s",
-                  }}>
+                  style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "6px 4px", cursor: "pointer", background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, border: isDragOver ? `2px solid ${T.accent}` : undefined, transition: "background .15s" }}>
                   <div style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 3 }}>{day}</div>
-
                   {evs.slice(0, 2).map(ev => (
-                    <div key={ev.id}
-                      draggable
-                      onDragStart={e => handleEventDragStart(e, ev)}
-                      onDragEnd={handleDragEnd}
-                      onClick={e => e.stopPropagation()}
+                    <div key={ev.id} draggable onDragStart={e => handleEventDragStart(e, ev)} onDragEnd={handleDragEnd} onClick={e => e.stopPropagation()}
                       style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2, fontSize: 9, fontWeight: 600, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "grab", opacity: draggingEvent?.id === ev.id ? 0.4 : 1 }}>
                       {ev.title}
                     </div>
@@ -1986,7 +2152,6 @@ export default function App() {
   const [tab, setTab]               = useState("board");
   const [notifs, setNotifs]         = useState({});
   const [dbReady, setDbReady]       = useState(false);
-  // Modo "Meus cards" — persiste entre abas via localStorage
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
 
   const setMyCardsMode = (val) => {
@@ -1994,7 +2159,6 @@ export default function App() {
     localStorage.setItem(MY_CARDS_KEY, val ? "1" : "0");
   };
 
-  // Presença online
   useOnlinePresence(currentUser?.id);
 
   useEffect(() => {
@@ -2064,16 +2228,13 @@ export default function App() {
       <GlobalStyles />
       <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
 
-        {/* ── HEADER ── */}
+        {/* HEADER */}
         <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 12px" }}>
-
-            {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", flexShrink: 0 }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>SM</div>
             </div>
 
-            {/* Nav */}
             <nav style={{ display: "flex", flex: 1, justifyContent: "center" }}>
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 10px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s", whiteSpace: "nowrap" }}>
@@ -2083,28 +2244,15 @@ export default function App() {
               ))}
             </nav>
 
-            {/* Right */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              {/* Toggle "Meus Cards" */}
-              <button
-                onClick={() => setMyCardsMode(!myCardsMode)}
-                title={myCardsMode ? "Exibindo só seus cards — clique para ver todos" : "Filtrar só seus cards"}
-                style={{
-                  background: myCardsMode ? T.accent : T.bg3,
-                  border: `1px solid ${myCardsMode ? T.accent : T.border}`,
-                  borderRadius: 8, padding: "5px 10px", cursor: "pointer",
-                  color: myCardsMode ? "#fff" : T.textMuted,
-                  fontSize: 11, fontWeight: 700, fontFamily: "inherit",
-                  display: "flex", alignItems: "center", gap: 5,
-                  transition: "all .2s",
-                }}>
+              <button onClick={() => setMyCardsMode(!myCardsMode)} title={myCardsMode ? "Ver todos" : "Filtrar meus cards"}
+                style={{ background: myCardsMode ? T.accent : T.bg3, border: `1px solid ${myCardsMode ? T.accent : T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: myCardsMode ? "#fff" : T.textMuted, fontSize: 11, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, transition: "all .2s" }}>
                 <span style={{ fontSize: 14 }}>🎯</span>
-                <span className="nav-label">{myCardsMode ? "Meus cards" : "Meus cards"}</span>
+                <span className="nav-label">Meus cards</span>
               </button>
 
               <NotifBell notifs={myNotifs} onClear={clearNotifs} />
 
-              {/* Perfil */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ position: "relative" }}>
                   <Avatar member={currentUser} size={32} />
