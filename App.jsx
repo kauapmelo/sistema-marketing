@@ -1517,100 +1517,134 @@ function SocialTab({ data, updateData }) {
   const [csvError, setCsvError] = useState(null);
   const [csvPreview, setCsvPreview] = useState(null);
 
-  // Detecta separador do CSV (vírgula, ponto-e-vírgula ou tab)
-  const detectSep = (line) => {
-    const counts = { ",": (line.match(/,/g)||[]).length, ";": (line.match(/;/g)||[]).length, "\t": (line.match(/\t/g)||[]).length };
-    return Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+  // Tokenizer CSV completo — suporta aspas, campos com quebra de linha interna e BOM UTF-8
+  const parseCSVFull = (text) => {
+    const raw = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    // Detecta separador pela primeira linha
+    const firstLine = raw.split("\n")[0] || "";
+    let sc = 0, ss = 0, inQ = false;
+    for (const ch of firstLine) {
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (!inQ && ch === ",") sc++;
+      if (!inQ && ch === ";") ss++;
+    }
+    const sep = ss > sc ? ";" : ",";
+    // Tokeniza respeitando aspas e newlines internos
+    const records = [];
+    let cur = "", fields = [], inQuote = false;
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (ch === '"') {
+        if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (!inQuote && ch === sep) {
+        fields.push(cur); cur = "";
+      } else if (!inQuote && ch === "\n") {
+        fields.push(cur); cur = "";
+        if (fields.some(f => f.trim())) records.push(fields);
+        fields = [];
+      } else {
+        cur += ch;
+      }
+    }
+    if (fields.length || cur) { fields.push(cur); if (fields.some(f => f.trim())) records.push(fields); }
+    if (records.length < 2) return { records: [], headers: [], sep, error: "Arquivo vazio ou sem dados suficientes." };
+    const headers = records[0].map(h => h.trim().toLowerCase());
+    return { headers, records: records.slice(1), sep, error: null };
   };
 
-  // Divide uma linha respeitando aspas
-  const splitLine = (line, sep) => {
-    const result = [];
-    let cur = "", inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQ = !inQ; continue; }
-      if (!inQ && ch === sep) { result.push(cur.trim()); cur = ""; continue; }
-      cur += ch;
-    }
-    result.push(cur.trim());
-    return result;
+  const parseNum = (val) => {
+    if (!val && val !== 0) return 0;
+    const s = String(val).trim().replace(/\s/g, "");
+    if (!s) return 0;
+    // Formato BR: 1.234,56
+    if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0);
+    // Formato EN: 1,234.56
+    if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s)) return Math.round(parseFloat(s.replace(/,/g, "")) || 0);
+    return Math.round(parseFloat(s.replace(/[^\d.]/g, "")) || 0);
   };
+
+  const findIdx = (headers, ...keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
 
   const parseCSV = (text, plat) => {
-    // Normaliza quebras de linha
-    const raw = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    const lines = raw.split("\n").filter(l => l.trim());
-    if (lines.length < 2) return { rows: [], headers: [], sep: ",", error: "Arquivo vazio ou sem dados." };
+    const { headers, records, sep, error } = parseCSVFull(text);
+    if (error) return { rows: [], headers: [], sep: ",", error };
 
-    const sep = detectSep(lines[0]);
-    const headers = splitLine(lines[0], sep).map(h => h.toLowerCase().replace(/['"]/g, "").trim());
+    // Índices das colunas — nomes reais do Meta Business Suite + genéricos
+    const iPostId   = findIdx(headers, "identificação do post", "post id", "media id");
+    const iDesc     = findIdx(headers, "descrição", "description", "legenda", "caption", "título", "title", "nome do vídeo", "video title", "conteúdo", "content", "nome");
+    const iType     = findIdx(headers, "tipo de post", "post type", "media type", "tipo");
+    const iPubDate  = findIdx(headers, "horário de publicação", "data de publicação", "published at", "post date", "created", "publicado", "posted at", "horário");
+    const iDataCol  = findIdx(headers, "data"); // coluna "Data" do Instagram: valor "Total" ou data específica
+    const iViews    = findIdx(headers, "visualizações", "views", "plays", "reproduções", "vídeo views", "video views", "impressões", "impressions");
+    const iReach    = findIdx(headers, "alcance", "reach");
+    const iLikes    = findIdx(headers, "curtidas", "likes", "reações", "reactions", "hearts", "favoritos");
+    const iShares   = findIdx(headers, "compartilhamentos", "shares", "repost");
+    const iComments = findIdx(headers, "comentários", "comments");
+    const iSaves    = findIdx(headers, "salvamentos", "saves", "bookmarks");
 
-    // Mapeamento amplo de cabeçalhos reais de cada plataforma
-    const TITLE_KEYS   = ["título","title","nome","name","video title","post title","description","legenda","caption","content title","video","post","publicação","conteúdo","content"];
-    const VIEWS_KEYS   = ["view","visualiz","impres","alcance","reach","plays","reproduç","reproducao","play count","video views","impressions","pageviews"];
-    const LIKES_KEYS   = ["like","curtida","reaction","reação","hearts","favorit","love","👍"];
-    const COMMENT_KEYS = ["comment","comentar","resposta","reply","replies"];
-    const SHARES_KEYS  = ["share","compartilh","repost","retweet","encaminh","forward","repasse"];
-    const DATE_KEYS    = ["date","data","período","period","created","publicado","published","post date","time","hora","when","posted"];
+    const get = (row, i) => (i >= 0 && i < row.length) ? row[i].trim() : "";
 
-    const findCol = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+    // Instagram exporta uma linha "Data = Total" com os dados acumulados do post.
+    // Se essa coluna existir, filtra só essas linhas; senão usa tudo.
+    const hasTotalRows = iDataCol >= 0 && records.some(r => get(r, iDataCol).toLowerCase() === "total");
+    const filtered = hasTotalRows
+      ? records.filter(r => get(r, iDataCol).toLowerCase() === "total")
+      : records;
 
-    const iTitle    = findCol(TITLE_KEYS);
-    const iViews    = findCol(VIEWS_KEYS);
-    const iLikes    = findCol(LIKES_KEYS);
-    const iComments = findCol(COMMENT_KEYS);
-    const iShares   = findCol(SHARES_KEYS);
-    const iDate     = findCol(DATE_KEYS);
+    const rows = filtered.map((row, idx) => {
+      // Título: usa Descrição, remove quebras de linha, limita a 80 chars
+      let title = get(row, iDesc);
+      if (!title && iPostId >= 0) title = get(row, iPostId);
+      if (!title) title = `Post ${idx + 1}`;
+      title = title.replace(/\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 
-    // Se não achou título nem views, tenta mapear pela posição (1ª coluna = título, demais = números)
-    const fallback = iTitle < 0 && iViews < 0;
+      // Views: prefere Visualizações, usa Alcance como fallback
+      const views    = parseNum(get(row, iViews)) || parseNum(get(row, iReach));
+      const likes    = parseNum(get(row, iLikes));
+      const comments = parseNum(get(row, iComments));
+      const shares   = parseNum(get(row, iShares));
+      const saves    = iSaves >= 0 ? parseNum(get(row, iSaves)) : 0;
 
-    const parseNum = (val) => {
-      if (!val) return 0;
-      // Remove pontos de milhar e troca vírgula decimal por ponto
-      const clean = String(val).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "");
-      return Math.round(parseFloat(clean) || 0);
-    };
+      // Data: converte MM/DD/YYYY → YYYY-MM-DD
+      let date = get(row, iPubDate) || new Date().toISOString().slice(0, 10);
+      const mdy = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (mdy) date = `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
+      else date = date.slice(0, 10);
 
-    const rows = lines.slice(1).map((line, idx) => {
-      const cols = splitLine(line, sep);
-      const get = (i) => i >= 0 && i < cols.length ? cols[i] : "";
+      // Tipo
+      const rawType = get(row, iType);
+      const type = /reel/i.test(rawType) ? "Reels"
+        : /story|stories/i.test(rawType) ? "Story"
+        : /live/i.test(rawType) ? "Live"
+        : /video|vídeo/i.test(rawType) ? "Vídeo"
+        : "Post";
 
-      const title = fallback
-        ? (cols[0] || `Conteúdo ${idx + 1}`)
-        : (get(iTitle) || `Conteúdo ${idx + 1}`);
+      return { id: uid(), title, thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, saves, date, type };
+    }).filter(r => r.title.length > 0);
 
-      const views    = fallback ? parseNum(cols[1]) : parseNum(get(iViews));
-      const likes    = fallback ? parseNum(cols[2]) : parseNum(get(iLikes));
-      const comments = fallback ? parseNum(cols[3]) : parseNum(get(iComments));
-      const shares   = fallback ? parseNum(cols[4]) : parseNum(get(iShares));
-      const date     = get(iDate) || new Date().toISOString().slice(0, 10);
-
-      return { id: uid(), title: title.trim(), thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, date, type: "Importado" };
-    }).filter(r => r.title && r.title.length > 0);
-
-    return { rows, headers, sep, iTitle, iViews, iLikes, iDate, error: null };
+    return { rows, headers, sep, error: null };
   };
 
   const handleCSV = e => {
     const file = e.target.files[0];
     if (!file) return;
     setCsvError(null);
+    setCsvPreview(null);
     const reader = new FileReader();
     reader.onload = ev => {
       try {
         const result = parseCSV(ev.target.result, platform);
         if (result.error) { setCsvError(result.error); return; }
         if (!result.rows.length) {
-          setCsvError("Nenhuma linha válida encontrada. Verifique se o arquivo tem conteúdo.");
+          setCsvError("Nenhuma linha válida encontrada. O arquivo pode estar vazio ou em formato não suportado.");
           return;
         }
         updateData({ ...data, [platform]: [...toArr(data[platform]), ...result.rows] });
-        setCsvPreview({ count: result.rows.length, headers: result.headers, sep: result.sep === "\t" ? "TAB" : result.sep });
-        setTimeout(() => setCsvPreview(null), 5000);
-      } catch(err) {
-        setCsvError("Erro ao ler o arquivo: " + err.message);
+        setCsvPreview({ count: result.rows.length, sep: result.sep === "\t" ? "TAB" : result.sep, sample: result.rows[0]?.title?.slice(0, 60) || "" });
+        setTimeout(() => setCsvPreview(null), 7000);
+      } catch (err) {
+        setCsvError("Erro inesperado ao processar o arquivo: " + err.message);
       }
     };
     reader.onerror = () => setCsvError("Não foi possível ler o arquivo.");
@@ -1656,7 +1690,7 @@ function SocialTab({ data, updateData }) {
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 13, color: T.green }}>{csvPreview.count} itens importados com sucesso!</p>
             <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>
-              Separador detectado: <strong style={{ color: T.textSub }}>{csvPreview.sep}</strong> · Colunas encontradas: {csvPreview.headers.slice(0,5).join(", ")}{csvPreview.headers.length > 5 ? ` +${csvPreview.headers.length - 5}` : ""}
+              Primeiro post: <strong style={{ color: T.textSub }}>{csvPreview.sample}</strong>
             </p>
           </div>
         </div>
@@ -1715,7 +1749,7 @@ function SocialTab({ data, updateData }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-                  {[["❤️", post.likes,"Curtidas"],["💬", post.comments,"Coments."],["📤", post.shares,"Compart."]].map(([icon, val, label]) => (
+                  {[["❤️", post.likes,"Curtidas"],["💬", post.comments,"Coments."],["📤", post.shares,"Compart."],["🔖", post.saves||0,"Salvam."]].map(([icon, val, label]) => (
                     <div key={label} style={{ textAlign: "center" }}>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.text }}>{fmtNum(val)}</p>
                       <p style={{ margin: 0, fontSize: 10, color: T.textMuted }}>{icon} {label}</p>
