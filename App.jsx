@@ -75,37 +75,30 @@ const GLOBAL_STYLE = `
     .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
     .top-bottom-grid { grid-template-columns: 1fr !important; }
     .col-drag-handle { display: none !important; }
-    /* Kanban: horizontal scroll com colunas mais estreitas */
     .kanban-board { padding-bottom: 12px !important; }
     .kanban-col { min-width: 240px !important; max-width: 240px !important; }
-    /* Header mobile */
     .header-user-name { display: none !important; }
     .header-user-role { display: none !important; }
     .header-mycards-label { display: none !important; }
-    /* Cards mobile */
     .card-pills { flex-wrap: wrap !important; }
-    /* Analytics KPI */
     .analytics-kpi-val { font-size: 20px !important; }
-    /* Page padding */
     .page-content { padding: 10px 8px 60px !important; }
-    /* Bottom tab bar */
     .bottom-nav { display: flex !important; }
     .top-nav-tabs { display: none !important; }
-    /* Social */
     .social-header { flex-direction: column !important; align-items: flex-start !important; }
-    /* Calendar */
-    .cal-day { min-height: 52px !important; padding: 3px 2px !important; }
+    /* FIX: Calendar mobile - células menores mas visíveis */
+    .cal-day { min-height: 56px !important; padding: 3px 2px !important; }
     .cal-day-num { width: 18px !important; height: 18px !important; font-size: 10px !important; }
     .cal-event-label { font-size: 8px !important; }
-    /* Filter bar */
     .filter-bar { flex-wrap: wrap !important; }
     .filter-bar-right { margin-left: 0 !important; width: 100% !important; justify-content: stretch !important; }
     .filter-bar-right button { flex: 1 !important; }
-    /* Modal full width */
     .modal-inner { max-width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; max-height: 92vh !important; overflow-y: auto !important; }
+    /* FIX: Calendar detail panel - better layout on mobile */
+    .cal-detail-row { flex-wrap: wrap !important; gap: 8px !important; }
+    .cal-detail-member { min-width: 0 !important; }
   }
 
-  /* Bottom nav (shown only on mobile via JS/display) */
   .bottom-nav {
     display: none;
     position: fixed;
@@ -145,16 +138,13 @@ const DEFAULT_TASK_TYPES = ["Post","Story","Reels","E-mail","Blog","Anúncio","R
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const initials = n => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
-// Format datetime: "DD/MM HH:mm" or just "DD/MM" if no time
 const fmtDateTime = (dt) => {
   if (!dt) return "";
-  // datetime-local format: "2026-05-20T14:30"
   if (dt.includes("T")) {
     const [datePart, timePart] = dt.split("T");
     const d = datePart.slice(5).replace("-", "/");
     return timePart ? `${d} ${timePart.slice(0,5)}` : d;
   }
-  // plain date
   return dt.slice(5).replace("-", "/");
 };
 
@@ -162,7 +152,6 @@ const fmtNum = n => n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
 const hashPwd = (pwd) => btoa(encodeURIComponent(pwd));
 const REMEMBER_KEY = "mkt_remember_user";
 const MY_CARDS_KEY = "mkt_my_cards_mode";
-const ONLINE_KEY = "mkt_online_";
 
 const toArr = (val) => {
   if (!val) return [];
@@ -265,38 +254,74 @@ function GlobalStyles() {
   return <style>{GLOBAL_STYLE}</style>;
 }
 
-/* ─── ONLINE PRESENCE ────────────────────────────────────── */
+/* ─── FIX: ONLINE PRESENCE via Firebase ─────────────────── */
 function useOnlinePresence(userId) {
   useEffect(() => {
     if (!userId) return;
-    const key = ONLINE_KEY + userId;
-    localStorage.setItem(key, Date.now());
-    const interval = setInterval(() => localStorage.setItem(key, Date.now()), 15000);
+    const presenceRef = ref(db, `presence/${userId}`);
+    set(presenceRef, { online: true, lastSeen: Date.now() });
+    const interval = setInterval(() => {
+      set(presenceRef, { online: true, lastSeen: Date.now() });
+    }, 15000);
     return () => {
       clearInterval(interval);
-      localStorage.removeItem(key);
+      set(presenceRef, { online: false, lastSeen: Date.now() });
     };
   }, [userId]);
 }
 
-function isOnline(userId) {
-  const ts = localStorage.getItem(ONLINE_KEY + userId);
-  if (!ts) return false;
-  return Date.now() - parseInt(ts) < 30000;
+/* Hook to get all presence data from Firebase */
+function usePresence() {
+  const [presence, setPresence] = useState({});
+  useEffect(() => {
+    const unsub = onValue(ref(db, 'presence'), snap => {
+      setPresence(snap.val() || {});
+    });
+    return () => unsub();
+  }, []);
+  return presence;
 }
 
 /* ─── AVATAR ─────────────────────────────────────────────── */
-function Avatar({ member, size = 28, style = {}, showOnline = false }) {
-  const online = showOnline ? isOnline(member.id) : false;
+function Avatar({ member, size = 28, style = {}, showOnline = false, presence = {} }) {
+  // FIX: use Firebase presence data instead of localStorage
+  const presData = presence[member?.id];
+  const online = showOnline && presData?.online && (Date.now() - (presData?.lastSeen || 0) < 35000);
+
+  if (!member) return null;
+
   return member.photo ? (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
+    <div style={{
+      width: size, height: size, borderRadius: "50%", overflow: "hidden",
+      flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box",
+      position: "relative", ...style
+    }}>
       <img src={member.photo} alt={member.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      {showOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />}
+      {showOnline && (
+        <div style={{
+          position: "absolute", bottom: 0, right: 0,
+          width: Math.max(size * 0.28, 8), height: Math.max(size * 0.28, 8),
+          borderRadius: "50%", background: online ? T.green : T.textMuted,
+          border: `2px solid ${T.bg1}`
+        }} />
+      )}
     </div>
   ) : (
-    <div style={{ width: size, height: size, borderRadius: "50%", background: member.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * .36, fontWeight: 700, flexShrink: 0, border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style }}>
+    <div style={{
+      width: size, height: size, borderRadius: "50%", background: member.color,
+      color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: size * .36, fontWeight: 700, flexShrink: 0,
+      border: `2px solid ${T.bg1}`, boxSizing: "border-box", position: "relative", ...style
+    }}>
       {member.avatar || initials(member.name)}
-      {showOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: size * 0.28, height: size * 0.28, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg1}` }} />}
+      {showOnline && (
+        <div style={{
+          position: "absolute", bottom: 0, right: 0,
+          width: Math.max(size * 0.28, 8), height: Math.max(size * 0.28, 8),
+          borderRadius: "50%", background: online ? T.green : T.textMuted,
+          border: `2px solid ${T.bg1}`
+        }} />
+      )}
     </div>
   );
 }
@@ -529,7 +554,7 @@ function PhotoUploader({ currentPhoto, color, name, onUpload }) {
 }
 
 /* ─── LOGIN SCREEN ───────────────────────────────────────── */
-function LoginScreen({ members, onLogin, onRegister }) {
+function LoginScreen({ members, onLogin, onRegister, presence }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [role, setRole] = useState("Social Media");
@@ -582,17 +607,22 @@ function LoginScreen({ members, onLogin, onRegister }) {
             <label style={s.label}>Selecione seu perfil</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 220, overflowY: "auto" }}>
               {members.length === 0 && <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center" }}>Carregando...</p>}
-              {members.map(m => (
-                <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selId === m.id ? T.accent : T.border}`, cursor: "pointer", background: selId === m.id ? T.accentDim : T.bg3, transition: "all .15s" }}>
-                  <Avatar member={m} size={36} showOnline />
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: T.textMuted }}>{m.role}</p>
+              {members.map(m => {
+                const presData = presence[m.id];
+                const online = presData?.online && (Date.now() - (presData?.lastSeen || 0) < 35000);
+                return (
+                  <div key={m.id} onClick={() => { setSelId(m.id); setPassword(""); setError(""); }}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selId === m.id ? T.accent : T.border}`, cursor: "pointer", background: selId === m.id ? T.accentDim : T.bg3, transition: "all .15s" }}>
+                    <Avatar member={m} size={36} showOnline presence={presence} />
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.text }}>{m.name}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: T.textMuted }}>{m.role}</p>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: online ? T.green : T.textMuted }}>{online ? "● Online agora" : "● Offline"}</span>
+                    </div>
+                    {selId === m.id && <span style={{ marginLeft: "auto", color: T.accent }}>✓</span>}
                   </div>
-                  {selId === m.id && <span style={{ marginLeft: "auto", color: T.accent }}>✓</span>}
-                </div>
-              ))}
+                );
+              })}
             </div>
             {selId && (
               <div style={{ marginBottom: 14 }}>
@@ -671,7 +701,7 @@ function ManageTypesModal({ types, onSave, onClose }) {
 }
 
 /* ─── CARD MODAL ─────────────────────────────────────────── */
-function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClose, onNotify, onManageTypes }) {
+function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClose, onNotify, onManageTypes, presence }) {
   const isNew = !card?.id;
   const defP = PRIORITIES[0];
   const [form, setForm] = useState(() => {
@@ -772,22 +802,16 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
                 ))}
               </div>
             </div>
-            {/* DATETIME-LOCAL for due */}
             <div>
               <label style={s.label}>📅 Prazo & Hora</label>
-              <input
-                type="datetime-local"
-                value={form.due || ""}
-                onChange={e => setF("due", e.target.value)}
-                style={s.input({ padding: "6px 10px", fontSize: 12, colorScheme: "dark", width: "100%" })}
-              />
+              <input type="datetime-local" value={form.due || ""} onChange={e => setF("due", e.target.value)} style={s.input({ padding: "6px 10px", fontSize: 12, colorScheme: "dark", width: "100%" })} />
             </div>
             <div>
               <label style={s.label}>Integrantes</label>
               {members.map(m => (
                 <div key={m.id} onClick={() => toggleMember(m.id)}
                   style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 8, cursor: "pointer", background: form.members.includes(m.id) ? T.accentDim : "transparent", marginBottom: 4, transition: "background .15s" }}>
-                  <Avatar member={m} size={22} showOnline />
+                  <Avatar member={m} size={22} showOnline presence={presence} />
                   <span style={{ fontSize: 12, color: T.text }}>{m.name.split(" ")[0]}</span>
                   {form.members.includes(m.id) && <span style={{ marginLeft: "auto", color: T.accent, fontSize: 12 }}>✓</span>}
                 </div>
@@ -817,7 +841,7 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────── */
-function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, isFirst, isLast }) {
+function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, isFirst, isLast, presence }) {
   const [drag, setDrag] = useState(false);
   const [completing, setCompleting] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
@@ -826,7 +850,6 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   const pri = getPriority(card.priority);
   const today = new Date().toISOString().slice(0, 10);
   const isCompleted = !!card.completed;
-  // Compare date part only for overdue
   const dueDate = card.due ? card.due.slice(0, 10) : null;
   const isOverdue = dueDate && dueDate < today && !isCompleted;
 
@@ -871,7 +894,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex" }}>
-          {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} showOnline /></div>)}
+          {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={22} showOnline presence={presence} /></div>)}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {checklist.length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
@@ -952,7 +975,7 @@ function QuickAdd({ colId, taskTypes, currentUser, onAdd }) {
 }
 
 /* ─── BOARD TAB ──────────────────────────────────────────── */
-function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode }) {
+function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode, presence }) {
   const [modal, setModal] = useState(null);
   const [colModal, setColModal] = useState(null);
   const [typesModal, setTypesModal] = useState(false);
@@ -960,8 +983,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
-
-  // Column drag-to-reorder state
   const [draggingColId, setDraggingColId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
 
@@ -999,7 +1020,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
 
-  /* ── Column drag handlers ── */
   const handleColDragStart = (e, colId) => {
     e.stopPropagation();
     setDraggingColId(colId);
@@ -1015,7 +1035,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const handleColDrop = (e, toColId) => {
     e.preventDefault();
     if (!draggingColId || draggingColId === toColId) { setDraggingColId(null); setDragOverColId(null); return; }
-    // Reorder columns
     const ordered = [...sortedCols];
     const fromIdx = ordered.findIndex(c => c.id === draggingColId);
     const toIdx   = ordered.findIndex(c => c.id === toColId);
@@ -1029,7 +1048,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const handleColDragEnd = () => { setDraggingColId(null); setDragOverColId(null); };
 
-  /* ── Card move handlers ── */
   const handleMoveUp = useCallback((cardId, colId) => {
     const newCols = columns.map(col => {
       if (col.id !== colId) return col;
@@ -1068,7 +1086,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   }, [columns, updateColumns, members, currentUser, onNotify, addToast]);
 
   const handleCardDrop = (e, toColId) => {
-    // Only handle card drops (not column drops)
     const cardData = e.dataTransfer.getData("card");
     if (!cardData) return;
     try {
@@ -1129,7 +1146,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   return (
     <div>
-      {/* Toolbar */}
       <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap", background: T.bg1, borderRadius: 14, padding: "10px 14px", border: `1px solid ${T.border}` }}>
         <div style={{ position: "relative", flex: 1, minWidth: 130, maxWidth: 210 }}>
           <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", color: T.textMuted }}>🔍</span>
@@ -1156,7 +1172,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         </div>
       </div>
 
-      {/* Column drag hint */}
       {draggingColId && (
         <div style={{ background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 8, padding: "6px 14px", marginBottom: 10, fontSize: 12, color: T.accent, display: "flex", alignItems: "center", gap: 6 }}>
           <span>📌</span> Arrastando coluna — solte sobre outra coluna para reordenar
@@ -1180,39 +1195,15 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           const isDragOver = dragOverColId === col.id;
           const isDragging = draggingColId === col.id;
           return (
-            <div
-              key={col.id}
-              className="kanban-col"
-              draggable
+            <div key={col.id} className="kanban-col" draggable
               onDragStart={e => handleColDragStart(e, col.id)}
               onDragEnd={handleColDragEnd}
-              onDragOver={e => {
-                // If dragging a column, handle column reorder
-                if (draggingColId) { handleColDragOver(e, col.id); return; }
-                e.preventDefault();
-              }}
-              onDrop={e => {
-                if (draggingColId) { handleColDrop(e, col.id); return; }
-                handleCardDrop(e, col.id);
-              }}
-              style={{
-                minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12,
-                border: `1.5px solid ${isDragOver ? T.accent : T.border}`,
-                padding: 10, flexShrink: 0,
-                opacity: isDragging ? 0.5 : 1,
-                transition: "border-color .2s, opacity .2s, transform .15s",
-                transform: isDragOver ? "scale(1.015)" : "scale(1)",
-                boxShadow: isDragOver ? `0 0 0 2px ${T.accent}44` : "none",
-              }}>
+              onDragOver={e => { if (draggingColId) { handleColDragOver(e, col.id); return; } e.preventDefault(); }}
+              onDrop={e => { if (draggingColId) { handleColDrop(e, col.id); return; } handleCardDrop(e, col.id); }}
+              style={{ minWidth: 256, maxWidth: 256, background: T.bg1, borderRadius: 12, border: `1.5px solid ${isDragOver ? T.accent : T.border}`, padding: 10, flexShrink: 0, opacity: isDragging ? 0.5 : 1, transition: "border-color .2s, opacity .2s, transform .15s", transform: isDragOver ? "scale(1.015)" : "scale(1)", boxShadow: isDragOver ? `0 0 0 2px ${T.accent}44` : "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  {/* Drag handle for column */}
-                  <div
-                    className="col-drag-handle"
-                    title="Arrastar coluna"
-                    style={{ cursor: "grab", color: T.textMuted, fontSize: 13, flexShrink: 0, padding: "0 2px", userSelect: "none" }}
-                    onMouseDown={e => e.stopPropagation()}
-                  >⠿</div>
+                  <div className="col-drag-handle" title="Arrastar coluna" style={{ cursor: "grab", color: T.textMuted, fontSize: 13, flexShrink: 0, padding: "0 2px", userSelect: "none" }} onMouseDown={e => e.stopPropagation()}>⠿</div>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
                   <span style={{ fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.title}</span>
                   <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>{visibleCards.length}</span>
@@ -1238,7 +1229,8 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   onOpen={(c, cid) => setModal({ card: c, colId: cid })}
                   onDelete={handleDelete} onComplete={handleComplete}
                   onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
-                  isFirst={idx === 0} isLast={idx === visibleCards.length - 1} />
+                  isFirst={idx === 0} isLast={idx === visibleCards.length - 1}
+                  presence={presence} />
               ))}
               {visibleCards.length === 0 && <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>}
               <div style={{ marginTop: 4 }}>
@@ -1260,7 +1252,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       {modal && (
         <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser}
           taskTypes={taskTypes} onSave={handleSave} onClose={() => setModal(null)}
-          onNotify={onNotify} onManageTypes={() => setTypesModal(true)} />
+          onNotify={onNotify} onManageTypes={() => setTypesModal(true)} presence={presence} />
       )}
       {colModal !== null && (
         <ColumnModal col={colModal && Object.keys(colModal).length > 0 ? colModal : null} onSave={handleSaveCol} onClose={() => setColModal(null)} />
@@ -1274,7 +1266,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 }
 
 /* ─── USERS TAB ──────────────────────────────────────────── */
-function UsersTab({ members, updateMembers, columns }) {
+function UsersTab({ members, updateMembers, columns, presence }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const allCards = columns.flatMap(c => c.cards);
@@ -1295,13 +1287,14 @@ function UsersTab({ members, updateMembers, columns }) {
       <div className="users-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
         {ranked.map((m, i) => {
           const { total, done, pts } = stats(m);
-          const online = isOnline(m.id);
+          const presData = presence[m.id];
+          const online = presData?.online && (Date.now() - (presData?.lastSeen || 0) < 35000);
           return (
             <div key={m.id} style={s.card({ padding: 18, position: "relative" })}>
               <div style={{ position: "absolute", top: 12, right: 14, fontWeight: 900, fontSize: 22, color: i === 0 ? T.amber : T.textMuted }}>{i === 0 ? "🏆" : `#${i + 1}`}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <div style={{ position: "relative" }}>
-                  <Avatar member={m} size={44} />
+                  <Avatar member={m} size={44} presence={presence} />
                   <div style={{ position: "absolute", bottom: 0, right: 0, width: 12, height: 12, borderRadius: "50%", background: online ? T.green : T.textMuted, border: `2px solid ${T.bg2}`, animation: online ? "pulse 2s infinite" : "none" }} />
                 </div>
                 <div>
@@ -1370,7 +1363,7 @@ function UsersTab({ members, updateMembers, columns }) {
 }
 
 /* ─── ANALYTICS TAB ──────────────────────────────────────── */
-function AnalyticsTab({ columns, members }) {
+function AnalyticsTab({ columns, members, presence }) {
   const [filter, setFilter] = useState("all");
   const today = new Date().toISOString().slice(0, 10);
 
@@ -1461,7 +1454,7 @@ function AnalyticsTab({ columns, members }) {
             const total = spark.reduce((a, b) => a + b, 0);
             return (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Avatar member={m} size={28} showOnline />
+                <Avatar member={m} size={28} showOnline presence={presence} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: T.text, minWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
                 <Sparkline data={spark} color={m.color} width={120} height={28} />
                 <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4 }}>{total} concluídas</span>
@@ -1498,7 +1491,7 @@ function AnalyticsTab({ columns, members }) {
                     </div>
                   </div>
                   <div style={{ display: "flex", flexShrink: 0 }}>
-                    {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}><Avatar member={m} size={26} showOnline /></div>)}
+                    {cardMembers.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -6 : 0 }}><Avatar member={m} size={26} showOnline presence={presence} /></div>)}
                   </div>
                 </div>
               );
@@ -1536,7 +1529,7 @@ function AnalyticsTab({ columns, members }) {
           {mStats.map((m, i) => (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? [T.amber, T.textSub, "#cd7f32"][i] : T.textMuted, width: 18 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}</span>
-              <Avatar member={m} size={24} showOnline />
+              <Avatar member={m} size={24} showOnline presence={presence} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3, gap: 4 }}>
                   <span style={{ fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name.split(" ")[0]}</span>
@@ -2119,7 +2112,7 @@ function SocialTab({ data, updateData }) {
 }
 
 /* ─── CALENDAR TAB ───────────────────────────────────────── */
-function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
+function CalendarTab({ members, columns, events, updateEvents, taskTypes, presence }) {
   const [cur, setCur] = useState(new Date(2026, 4, 1));
   const [sel, setSel] = useState(null);
   const [addModal, setAddModal] = useState(null);
@@ -2135,11 +2128,8 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   const today = new Date();
 
   const isToday = d => today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
-
-  // date string (YYYY-MM-DD) for a day in current month
   const datePfx = d => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-  // Events for a day: check if event date starts with datePfx
   const eventsFor = d => toArr(events).filter(e => {
     if (!e.date) return false;
     return e.date.startsWith(datePfx(d));
@@ -2147,7 +2137,9 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
 
   const allCards = columns.flatMap(c => c.cards);
   const memberColor = id => members.find(m => m.id === id)?.color || T.textMuted;
-  const memberName = id => members.find(m => m.id === id)?.name || "";
+
+  // FIX: A day has content if it has events OR cards with due dates
+  const dayHasContent = d => eventsFor(d).length > 0 || allCards.some(c => c.due && c.due.startsWith(datePfx(d)));
 
   const handleEventDragStart = (e, ev) => { e.stopPropagation(); setDraggingEvent(ev); };
   const handleDayDragOver = (e, day) => { e.preventDefault(); setDragOverDay(day); };
@@ -2163,7 +2155,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
   };
   const handleDragEnd = () => { setDraggingEvent(null); setDragOverDay(null); };
 
-  // Format event time for display in the detail panel
   const fmtEventTime = (dateStr) => {
     if (!dateStr) return "";
     if (dateStr.includes("T")) {
@@ -2200,9 +2191,11 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             {Array.from({ length: days }).map((_, i) => {
               const day = i + 1;
               const evs = eventsFor(day);
+              // FIX: show ALL cards with due on this day (not just 1)
               const dueCards = allCards.filter(c => c.due && c.due.startsWith(datePfx(day)));
               const isSel = sel === day;
               const isDragOver = dragOverDay === day;
+              const totalItems = evs.length + dueCards.length;
               return (
                 <div key={day}
                   onClick={() => setSel(day === sel ? null : day)}
@@ -2210,8 +2203,16 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
                   onDrop={e => handleDayDrop(e, day)}
                   onDragLeave={() => setDragOverDay(null)}
                   className="cal-day"
-                  style={{ minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, padding: "6px 4px", cursor: "pointer", background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2, border: isDragOver ? `2px solid ${T.accent}` : undefined, transition: "background .15s" }}>
+                  style={{
+                    minHeight: 70, borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`,
+                    padding: "6px 4px", cursor: "pointer",
+                    background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2,
+                    border: isDragOver ? `2px solid ${T.accent}` : undefined,
+                    transition: "background .15s"
+                  }}>
                   <div className="cal-day-num" style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 3 }}>{day}</div>
+
+                  {/* Events */}
                   {evs.slice(0, 2).map(ev => {
                     const mb = members.find(m => m.id === ev.memberId);
                     const t = fmtEventTime(ev.date);
@@ -2229,12 +2230,15 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
                       </div>
                     );
                   })}
-                  {dueCards.slice(0, 1).map(c => {
+
+                  {/* FIX: Show due cards — up to 2 in calendar cell, respecting space */}
+                  {dueCards.slice(0, Math.max(0, 2 - evs.length)).map(c => {
                     const cardMs = members.filter(m => toArr(c.members).includes(m.id));
+                    const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) : null;
                     return (
                       <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 4px", marginBottom: 2 }}>
                         <div className="cal-event-label" style={{ fontSize: 9, fontWeight: 700, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) + " " : ""}⭐ {c.title}
+                          {t ? `${t} ` : ""}⭐ {c.title}
                         </div>
                         {cardMs.length > 0 && (
                           <div style={{ fontSize: 8, color: T.amber, opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2244,7 +2248,9 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
                       </div>
                     );
                   })}
-                  {(evs.length + dueCards.length) > 3 && <div style={{ fontSize: 9, color: T.textMuted }}>+{evs.length + dueCards.length - 3}</div>}
+
+                  {/* Overflow indicator */}
+                  {totalItems > 2 && <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700 }}>+{totalItems - 2}</div>}
                 </div>
               );
             })}
@@ -2259,66 +2265,87 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>Dia {sel} de {MONTHS[month]}</h3>
             <button onClick={() => setAddModal(datePfx(sel))} style={s.btn(T.accent, { fontSize: 12, padding: "6px 12px" })}>+ Evento</button>
           </div>
+
+          {/* Events */}
           {eventsFor(sel).map(ev => {
             const mb = members.find(m => m.id === ev.memberId);
             const t = fmtEventTime(ev.date);
             return (
-              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ width: 3, height: 44, borderRadius: 99, background: memberColor(ev.memberId) }} />
+              <div key={ev.id} className="cal-detail-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ width: 3, alignSelf: "stretch", minHeight: 44, borderRadius: 99, background: memberColor(ev.memberId), flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</p>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
                     <span style={{ fontSize: 11, color: T.textMuted }}>{ev.type}</span>
                     {t && <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>🕐 {t}</span>}
-                    {mb && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <Avatar member={mb} size={16} />
-                        <span style={{ fontSize: 11, color: memberColor(ev.memberId), fontWeight: 600 }}>{mb.name.split(" ")[0]}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
-                {mb && <Avatar member={mb} size={28} showOnline />}
-                <button onClick={() => updateEvents(toArr(events).filter(e => e.id !== ev.id))} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16 }}>🗑️</button>
+                {/* FIX: Better member display in detail panel */}
+                {mb && (
+                  <div className="cal-detail-member" style={{ display: "flex", alignItems: "center", gap: 8, background: T.bg3, borderRadius: 10, padding: "6px 10px", flexShrink: 0 }}>
+                    <Avatar member={mb} size={32} showOnline presence={presence} />
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.text, whiteSpace: "nowrap" }}>{mb.name.split(" ")[0]}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: T.textMuted, whiteSpace: "nowrap" }}>{mb.role}</p>
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => updateEvents(toArr(events).filter(e => e.id !== ev.id))} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 16, flexShrink: 0 }}>🗑️</button>
               </div>
             );
           })}
+
+          {/* FIX: Show ALL due cards for selected day with proper member display */}
           {allCards.filter(c => c.due && c.due.startsWith(datePfx(sel))).map(c => {
             const cardMs = members.filter(m => toArr(c.members).includes(m.id));
             const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) : null;
+            const pri = getPriority(c.priority);
             return (
-              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ width: 3, height: 44, borderRadius: 99, background: T.amber }} />
+              <div key={c.id} className="cal-detail-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ width: 3, alignSelf: "stretch", minHeight: 44, borderRadius: 99, background: T.amber, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text }}>{c.title}</p>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
-                    <span style={{ fontSize: 11, color: T.amber }}>⭐ Prazo de card</span>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</p>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                    <span style={{ ...s.badge(T.amber), fontSize: 9 }}>⭐ Prazo</span>
+                    <span style={{ ...s.badge(pri.color), fontSize: 9 }}>{pri.label}</span>
                     {t && <span style={{ fontSize: 11, color: T.accent, fontWeight: 700 }}>🕐 {t}</span>}
-                    {cardMs.length > 0 && (
+                    {c.completed && <span style={{ ...s.badge(T.green), fontSize: 9 }}>✅ Concluído</span>}
+                  </div>
+                </div>
+                {/* FIX: Show members with name+role in detail — not squished avatar on the far right */}
+                {cardMs.length > 0 && (
+                  <div className="cal-detail-member" style={{ display: "flex", alignItems: "center", gap: 6, background: T.bg3, borderRadius: 10, padding: "6px 10px", flexShrink: 0 }}>
+                    {cardMs.length === 1 ? (
+                      <>
+                        <Avatar member={cardMs[0]} size={32} showOnline presence={presence} />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.text, whiteSpace: "nowrap" }}>{cardMs[0].name.split(" ")[0]}</p>
+                          <p style={{ margin: 0, fontSize: 10, color: T.textMuted, whiteSpace: "nowrap" }}>{cardMs[0].role}</p>
+                        </div>
+                      </>
+                    ) : (
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {cardMs.map((m, idx) => (
-                          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: idx ? 4 : 0 }}>
-                            <Avatar member={m} size={16} />
-                            <span style={{ fontSize: 11, color: m.color, fontWeight: 600 }}>{m.name.split(" ")[0]}</span>
+                        {cardMs.slice(0, 3).map((m, i) => (
+                          <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}>
+                            <Avatar member={m} size={28} showOnline presence={presence} />
                           </div>
                         ))}
+                        {cardMs.length > 3 && <span style={{ fontSize: 10, color: T.textMuted, marginLeft: 4 }}>+{cardMs.length - 3}</span>}
                       </div>
                     )}
                   </div>
-                </div>
-                <div style={{ display: "flex" }}>
-                  {cardMs.map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={26} showOnline /></div>)}
-                </div>
+                )}
               </div>
             );
           })}
+
           {eventsFor(sel).length === 0 && allCards.filter(c => c.due && c.due.startsWith(datePfx(sel))).length === 0 && (
-            <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "14px 0" }}>Nenhum evento</p>
+            <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "14px 0" }}>Nenhum evento neste dia</p>
           )}
         </div>
       )}
 
-      {/* Add event modal — uses datetime-local */}
+      {/* Add event modal */}
       {addModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setAddModal(null)}>
           <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
@@ -2330,12 +2357,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes }) {
               {taskTypes.map(t => <option key={t}>{t}</option>)}
             </select>
             <label style={s.label}>📅 Data e hora</label>
-            <input
-              type="datetime-local"
-              value={form.dateTime || `${addModal}T09:00`}
-              onChange={e => setForm(f => ({ ...f, dateTime: e.target.value }))}
-              style={{ ...s.input(), marginBottom: 12, colorScheme: "dark" }}
-            />
+            <input type="datetime-local" value={form.dateTime || `${addModal}T09:00`} onChange={e => setForm(f => ({ ...f, dateTime: e.target.value }))} style={{ ...s.input(), marginBottom: 12, colorScheme: "dark" }} />
             <label style={s.label}>Responsável</label>
             <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))} style={{ ...s.select(), marginBottom: 20 }}>
               <option value="">Selecionar...</option>
@@ -2371,11 +2393,15 @@ export default function App() {
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
 
+  // FIX: Global presence state from Firebase (shared across all users)
+  const presence = usePresence();
+
   const setMyCardsMode = (val) => {
     setMyCardsModeState(val);
     localStorage.setItem(MY_CARDS_KEY, val ? "1" : "0");
   };
 
+  // FIX: Write online status to Firebase
   useOnlinePresence(currentUser?.id);
 
   useEffect(() => {
@@ -2413,7 +2439,11 @@ export default function App() {
 
   const onLogin    = member => setCurrentUser(member);
   const onRegister = member => updateMembers([...members, member]);
-  const onLogout   = () => { localStorage.removeItem(REMEMBER_KEY); setCurrentUser(null); };
+  const onLogout   = () => {
+    if (currentUser) set(ref(db, `presence/${currentUser.id}`), { online: false, lastSeen: Date.now() });
+    localStorage.removeItem(REMEMBER_KEY);
+    setCurrentUser(null);
+  };
 
   const onNotify = useCallback((memberId, text) => {
     const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
@@ -2435,7 +2465,7 @@ export default function App() {
     return (
       <>
         <GlobalStyles />
-        <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} />
+        <LoginScreen members={members} onLogin={onLogin} onRegister={onRegister} presence={presence} />
       </>
     );
   }
@@ -2445,14 +2475,12 @@ export default function App() {
       <GlobalStyles />
       <div style={{ minHeight: "100vh", background: T.bg0, fontFamily: "'DM Sans',system-ui,sans-serif", color: T.text }}>
 
-        {/* DESKTOP/TABLET HEADER */}
         <div style={{ background: T.bg1, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1400, margin: "0 auto", padding: "0 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", flexShrink: 0 }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>SM</div>
             </div>
 
-            {/* Desktop tabs */}
             <nav className="top-nav-tabs" style={{ display: "flex", flex: 1, justifyContent: "center" }}>
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 10px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit", background: "transparent", color: tab === t.id ? T.accent : T.textMuted, borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent", transition: "all .15s", whiteSpace: "nowrap" }}>
@@ -2473,7 +2501,8 @@ export default function App() {
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ position: "relative" }}>
-                  <Avatar member={currentUser} size={32} />
+                  <Avatar member={currentUser} size={32} presence={presence} />
+                  {/* FIX: Online dot reads from Firebase presence */}
                   <div style={{ position: "absolute", bottom: 0, right: 0, width: 9, height: 9, borderRadius: "50%", background: T.green, border: `2px solid ${T.bg1}`, animation: "pulse 2s infinite" }} />
                 </div>
                 <div className="header-user-name" style={{ lineHeight: 1.2 }}>
@@ -2491,16 +2520,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* CONTENT */}
         <div className="page-content" style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 12px 48px" }}>
-          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} />}
-          {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} />}
-          {tab === "analytics" && <AnalyticsTab columns={columns} members={members} />}
+          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} presence={presence} />}
+          {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} presence={presence} />}
+          {tab === "analytics" && <AnalyticsTab columns={columns} members={members} presence={presence} />}
           {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
-          {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} />}
+          {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} presence={presence} />}
         </div>
 
-        {/* MOBILE BOTTOM NAV */}
         <nav className="bottom-nav">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
