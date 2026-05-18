@@ -1610,41 +1610,37 @@ const setFolders = (updater) => {
                   onRemoveCard={removeCardFromFolder}
                   onDragOverFolder={setDragOverFolder}
                   onDropFolder={(e, colId, folderId) => {
-  console.log("🔥 DROP NA PASTA!", { colId, folderId }); // <- ADICIONE PARA DEBUG
   e.preventDefault();
-  e.stopPropagation(); // <- ADICIONE ISSO!
+  e.stopPropagation();
   
   const cardData = e.dataTransfer.getData("card");
-  if (!cardData) {
-    console.log("❌ Sem cardData");
-    return;
-  }
+  if (!cardData) return;
   
   try {
     const { card, fromCol } = JSON.parse(cardData);
-    console.log("📦 Card:", card.title, "From:", fromCol, "To:", colId);
     
-    // Se o card veio de outra coluna, move ele primeiro
+    // SÓ move se for para uma coluna DIFERENTE
     if (fromCol !== colId) {
       updateColumns(columnsRef.current.map(c => {
+        // PROTEÇÃO: garante que cards existe
+        const cardsAtuais = c.cards || [];
+        
         if (c.id === fromCol) {
-          return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
+          return { ...c, cards: cardsAtuais.filter(x => x.id !== card.id) };
         }
         if (c.id === colId) {
-          return { ...c, cards: [...c.cards, card] };
+          return { ...c, cards: [...cardsAtuais, card] };
         }
-        return c;
+        return { ...c, cards: cardsAtuais };
       }));
     }
     
-    // Adiciona o card à pasta
+    // Adiciona o card à pasta (sempre executa)
     addCardToFolder(colId, folderId, card.id);
     setDragOverFolder(null);
     
-    console.log("✅ Card adicionado à pasta!");
-    
   } catch (err) { 
-    console.error("❌ Drop error:", err); 
+    console.error("Drop error:", err); 
   }
 }}
                   dragOverFolder={dragOverFolder}
