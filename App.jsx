@@ -94,6 +94,14 @@ const GLOBAL_STYLE = `
     .cal-detail-member { min-width: 0 !important; }
   }
 
+  @media (max-width: 600px) {
+  .kanban-card {
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
   .bottom-nav {
     display: none;
     position: fixed;
@@ -104,6 +112,8 @@ const GLOBAL_STYLE = `
     padding: 4px 0 env(safe-area-inset-bottom, 4px);
   }
 `;
+
+
 
 const T = {
   bg0: "#0a0a0f", bg1: "#111118", bg2: "#18181f", bg3: "#22222c",
@@ -843,7 +853,10 @@ const toggleMember = id => {
 function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, realIndex, totalRealCards, presence, onDragReorder }) {
   const [drag, setDrag] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [dragOver, setDragOver] = useState(false);  // <-- ADICIONE ESTA LINHA
+  const [dragOver, setDragOver] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
   
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
   const checklist = toArr(card.checklist);
@@ -854,14 +867,65 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   const dueDate = card.due ? card.due.slice(0, 10) : null;
   const isOverdue = dueDate && dueDate < today && !isCompleted;
 
-
-  // ADICIONE ESTAS FUNÇÕES
-  const handleDragStart = (e) => {
-    setDrag(true);
-    e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId }));
-    e.dataTransfer.setData("dragType", "card");
-    e.dataTransfer.effectAllowed = "move";
+  // Touch/Long press handlers
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    dragStartPos.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+    
+    const timer = setTimeout(() => {
+      setIsDragging(true);
+      setDrag(true);
+      // Criar elemento fantasma para drag
+      const ghost = e.currentTarget.cloneNode(true);
+      ghost.style.position = 'absolute';
+      ghost.style.top = '-1000px';
+      ghost.style.opacity = '0.5';
+      document.body.appendChild(ghost);
+      e.dataTransfer = { setDragImage: () => {} };
+    }, 200);
+    
+    setLongPressTimer(timer);
   };
+  
+  const handleTouchMove = (e) => {
+    if (!isDragging && longPressTimer) {
+      const deltaX = Math.abs(e.touches[0].clientX - dragStartPos.current.x);
+      const deltaY = Math.abs(e.touches[0].clientY - dragStartPos.current.y);
+      if (deltaX > 10 || deltaY > 10) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+    }
+  };
+  
+  const handleTouchEnd = (e) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    setIsDragging(false);
+    setDrag(false);
+  };
+
+  // Drag handlers for desktop
+ const handleDragStart = (e) => {
+  setDrag(true);
+  const dragData = JSON.stringify({ card, fromCol: colId });
+  e.dataTransfer.setData("card", dragData);
+  e.dataTransfer.setData("dragType", "card");
+  e.dataTransfer.effectAllowed = "move";
+  
+  // Para mobile/fallback
+  window.draggedCardData = dragData;
+  e.currentTarget.setAttribute('data-card-data', dragData);
+  
+  if (e.dataTransfer.setDragImage) {
+    e.dataTransfer.setDragImage(new Image(), 0, 0);
+  }
+};
   
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -883,7 +947,6 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
     try {
       const { card: draggedCard, fromCol: fromColId } = JSON.parse(dragData);
       
-      // Se for da mesma coluna, reordena
       if (fromColId === colId && draggedCard.id !== card.id && onDragReorder) {
         onDragReorder(fromColId, draggedCard.id, card.id);
       }
@@ -892,18 +955,13 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
     }
   };
 
-  // Use real index for first/last detection — works correctly with any filter
-  const isFirst = realIndex === 0;
-  const isLast = realIndex === totalRealCards - 1;
-
   const handleComplete = (e) => {
     e.stopPropagation();
-    if (completing) return;  // Remove o || isCompleted daqui
+    if (completing) return;
     setCompleting(true);
     setTimeout(() => { onComplete(card, colId); setCompleting(false); }, 320);
   };
 
-  // ADICIONE ESTA FUNÇÃO PARA VERIFICAR TAREFAS PRESTES A VENCER
   const isUpcomingDue = () => {
     if (!card.due || isCompleted) return false;
     const dueDateObj = new Date(card.due);
@@ -916,27 +974,32 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
 
   return (
     <div
-      draggable
+      draggable={!isCompleted}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onDragEnd={() => { setDrag(false); setDragOver(false); }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         background: isCompleted ? "#22c55e08" : (dragOver ? T.accentDim : T.bg3),
         borderRadius: 10, padding: "12px 12px",
         border: `1.5px solid ${completing ? T.green : isCompleted ? T.green : drag ? T.accent : dragOver ? T.accent : isOverdue ? T.red + "77" : T.border}`,
-        cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8,
+        cursor: isDragging ? "grabbing" : "grab", 
+        opacity: drag ? .5 : 1, 
+        marginBottom: 8,
         transition: "border .3s, background .3s",
         animation: completing ? "completePop .32s ease" : "none",
-        position: "relative", overflow: "hidden",
+        position: "relative", 
+        overflow: "hidden",
+        touchAction: "none", // Importante para touch
       }}>
       {isCompleted && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          {/* REMOVA OS BOTÕES ▲ e ▼ - ELES NÃO SERÃO MAIS USADOS */}
-          {/* Botão de concluir atualizado */}
           <button 
             title={isCompleted ? "Desmarcar como concluído" : "Marcar como concluído"} 
             onClick={handleComplete} 
@@ -975,11 +1038,11 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
           {checklist.length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
           {toArr(card.comments).length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>💬 {toArr(card.comments).length}</span>}
           {card.due && (
-  <span style={{ fontSize: 10, color: isOverdue ? T.red : (upcoming ? T.amber : T.textMuted) }}>
-    📅 {fmtDateTime(card.due)}
-    {upcoming && !isOverdue && <span style={{ marginLeft: 4, color: T.amber }}>⚠️</span>}
-  </span>
-)}
+            <span style={{ fontSize: 10, color: isOverdue ? T.red : (upcoming ? T.amber : T.textMuted) }}>
+              📅 {fmtDateTime(card.due)}
+              {upcoming && !isOverdue && <span style={{ marginLeft: 4, color: T.amber }}>⚠️</span>}
+            </span>
+          )}
           <span style={{ fontSize: 10, fontWeight: 700, color: pri.color }}>⭐{card.points}</span>
         </div>
       </div>
@@ -1082,10 +1145,10 @@ function FolderModal({ colId, onSave, onClose }) {
   );
 }
 
-function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence }) {
+function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence, onDragReorder }) {
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(folder.name);
- const folderCards = cards.filter(c => (folder.cardIds || []).includes(c.id));
+  const folderCards = cards.filter(c => (folder.cardIds || []).includes(c.id));
   const completedCount = folderCards.filter(c => c.completed).length;
   const isDragOver = dragOverFolder?.colId === colId && dragOverFolder?.folderId === folder.id;
 
@@ -1187,6 +1250,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
                 onComplete={onComplete}
                 onMoveUp={onMoveUp}
                 onMoveDown={onMoveDown}
+                onDragReorder={onDragReorder}  // ← ADICIONADO!
                 realIndex={idx}
                 totalRealCards={folderCards.length}
                 presence={presence}
@@ -1357,6 +1421,20 @@ const setFolders = (updater) => {
   const columnsRef = useRef(columns);
   useEffect(() => { columnsRef.current = columns; }, [columns]);
 
+  // Adicione dentro do BoardTab, próximo aos outros useEffects
+useEffect(() => {
+  // Para mobile: armazenar dados do card sendo arrastado globalmente
+  const handleDragStartGlobal = (e) => {
+    const cardElement = e.target.closest('[draggable="true"]');
+    if (cardElement && cardElement.getAttribute('data-card-data')) {
+      window.draggedCardData = cardElement.getAttribute('data-card-data');
+    }
+  };
+  
+  document.addEventListener('dragstart', handleDragStartGlobal);
+  return () => document.removeEventListener('dragstart', handleDragStartGlobal);
+}, []);
+
   /* ── Column drag ── */
   const handleColDragStart = useCallback((e, colId) => {
     e.stopPropagation();
@@ -1462,20 +1540,50 @@ const setFolders = (updater) => {
 }, [updateColumns, members, currentUser, onNotify, addToast]);
 
   const handleCardDrop = useCallback((e, toColId) => {
-    const dtype = e.dataTransfer.getData("dragType");
-    if (dtype === "col") return;
-    const cardData = e.dataTransfer.getData("card");
-    if (!cardData) return;
-    try {
-      const { card, fromCol } = JSON.parse(cardData);
-      if (fromCol === toColId) return;
-      updateColumns(columnsRef.current.map(col => {
-        if (col.id === fromCol) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
-        if (col.id === toColId) return { ...col, cards: [...col.cards, card] };
-        return col;
-      }));
-    } catch (err) { console.error("Drop error:", err); }
-  }, [updateColumns]);
+  e.preventDefault();
+  e.stopPropagation();
+  
+  let cardData = e.dataTransfer.getData("card");
+  
+  // Se não encontrou no dataTransfer, tenta buscar de outra forma
+  if (!cardData && window.draggedCardData) {
+    cardData = window.draggedCardData;
+    window.draggedCardData = null;
+  }
+  
+  if (!cardData) return;
+  
+  try {
+    const { card, fromCol } = JSON.parse(cardData);
+    
+    // Se for a mesma coluna, não faz nada (reordenação já tratada no KanbanCard)
+    if (fromCol === toColId) return;
+    
+    // Move entre colunas
+    updateColumns(columnsRef.current.map(col => {
+      const cardsAtuais = col.cards || [];
+      
+      if (col.id === fromCol) {
+        return { ...col, cards: cardsAtuais.filter(c => c.id !== card.id) };
+      }
+      if (col.id === toColId) {
+        return { ...col, cards: [...cardsAtuais, { ...card, completed: false }] };
+      }
+      return { ...col, cards: cardsAtuais };
+    }));
+    
+    // Notifica os membros
+    toArr(card.members).forEach(mid => {
+      if (mid !== currentUser?.id) {
+        const mb = members.find(m => m.id === mid);
+        if (mb) onNotify(mb.id, `📦 "${card.title}" foi movido para outra coluna`);
+      }
+    });
+    
+  } catch (err) { 
+    console.error("Drop error:", err); 
+  }
+}, [updateColumns, currentUser, members, onNotify]);
 
   const handleSave = (form, colId) => {
     const newCols = columnsRef.current.map(col => {
@@ -1694,60 +1802,60 @@ const setFolders = (updater) => {
 
               {/* Pastas */}
               {colFolders.map(folder => (
-                <FolderBlock
-                  key={folder.id}
-                  folder={folder}
-                  colId={col.id}
-                  cards={col.cards}
-                  members={members}
-                  onToggle={toggleFolder}
-                  onDelete={deleteFolder}
-                  onRename={renameFolder}
-                  onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                  onDeleteCard={handleDelete}
-                  onComplete={handleComplete}
-                  onMoveUp={handleMoveUp}
-                  onMoveDown={handleMoveDown}
-                  onRemoveCard={removeCardFromFolder}
-                  onDragOverFolder={setDragOverFolder}
-                  onDropFolder={(e, colId, folderId) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  const cardData = e.dataTransfer.getData("card");
-  if (!cardData) return;
-  
-  try {
-    const { card, fromCol } = JSON.parse(cardData);
-    
-    // SÓ move se for para uma coluna DIFERENTE
-    if (fromCol !== colId) {
-      updateColumns(columnsRef.current.map(c => {
-        // PROTEÇÃO: garante que cards existe
-        const cardsAtuais = c.cards || [];
+  <FolderBlock
+    key={folder.id}
+    folder={folder}
+    colId={col.id}
+    cards={col.cards}
+    members={members}
+    onToggle={toggleFolder}
+    onDelete={deleteFolder}
+    onRename={renameFolder}
+    onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+    onDeleteCard={handleDelete}
+    onComplete={handleComplete}
+    onMoveUp={handleMoveUp}
+    onMoveDown={handleMoveDown}
+    onRemoveCard={removeCardFromFolder}
+    onDragOverFolder={setDragOverFolder}
+    onDropFolder={(e, colId, folderId) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const cardData = e.dataTransfer.getData("card");
+      if (!cardData) return;
+      
+      try {
+        const { card, fromCol } = JSON.parse(cardData);
         
-        if (c.id === fromCol) {
-          return { ...c, cards: cardsAtuais.filter(x => x.id !== card.id) };
+        // SÓ move se for para uma coluna DIFERENTE
+        if (fromCol !== colId) {
+          updateColumns(columnsRef.current.map(c => {
+            const cardsAtuais = c.cards || [];
+            
+            if (c.id === fromCol) {
+              return { ...c, cards: cardsAtuais.filter(x => x.id !== card.id) };
+            }
+            if (c.id === colId) {
+              return { ...c, cards: [...cardsAtuais, card] };
+            }
+            return { ...c, cards: cardsAtuais };
+          }));
         }
-        if (c.id === colId) {
-          return { ...c, cards: [...cardsAtuais, card] };
-        }
-        return { ...c, cards: cardsAtuais };
-      }));
-    }
-    
-    // Adiciona o card à pasta (sempre executa)
-    addCardToFolder(colId, folderId, card.id);
-    setDragOverFolder(null);
-    
-  } catch (err) { 
-    console.error("Drop error:", err); 
-  }
-}}
-                  dragOverFolder={dragOverFolder}
-                  presence={presence}
-                />
-              ))}
+        
+        // Adiciona o card à pasta (sempre executa)
+        addCardToFolder(colId, folderId, card.id);
+        setDragOverFolder(null);
+        
+      } catch (err) { 
+        console.error("Drop error:", err); 
+      }
+    }}
+    dragOverFolder={dragOverFolder}
+    presence={presence}
+    onDragReorder={handleReorderCards}  // ← ADICIONE ESTA LINHA!
+  />
+))}
 
               {/* Empty col hint */}
               {visibleCards.length === 0 && colFolders.length === 0 && (
