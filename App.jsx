@@ -990,6 +990,163 @@ function QuickAdd({ colId, taskTypes, currentUser, onAdd }) {
   );
 }
 
+function FolderModal({ colId, onSave, onClose }) {
+  const [name, setName] = useState("");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={s.card({ padding: 24, width: "100%", maxWidth: 340, boxShadow: "0 24px 64px #000000cc" })}>
+        <h3 style={{ margin: "0 0 16px", fontWeight: 800, color: T.text }}>📁 Nova Pasta</h3>
+        <label style={s.label}>Nome da pasta</label>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && name.trim()) { onSave(name.trim()); onClose(); } }}
+          placeholder="Ex: Campanha Junho..."
+          style={{ ...s.input(), marginBottom: 20 }}
+          autoFocus
+        />
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={s.btn(T.bg4, { color: T.text })}>Cancelar</button>
+          <button
+            onClick={() => { if (name.trim()) { onSave(name.trim()); onClose(); } }}
+            style={s.btn(T.accent)}
+          >Criar Pasta</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence }) {
+  const [renaming, setRenaming] = useState(false);
+  const [renameVal, setRenameVal] = useState(folder.name);
+  const folderCards = cards.filter(c => folder.cardIds.includes(c.id));
+  const completedCount = folderCards.filter(c => c.completed).length;
+  const isDragOver = dragOverFolder?.colId === colId && dragOverFolder?.folderId === folder.id;
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {/* Header da pasta */}
+      <div
+        onDragOver={e => { e.preventDefault(); onDragOverFolder({ colId, folderId: folder.id }); }}
+        onDrop={e => { e.preventDefault(); onDropFolder(e, colId, folder.id); }}
+        style={{
+          background: isDragOver ? T.accentDim : T.bg2,
+          border: `1.5px solid ${isDragOver ? T.accent : T.border}`,
+          borderRadius: folder.collapsed ? 10 : "10px 10px 0 0",
+          padding: "8px 10px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          transition: "all .15s",
+          userSelect: "none",
+        }}
+      >
+        {/* Toggle */}
+        <span
+          onClick={() => onToggle(colId, folder.id)}
+          style={{ fontSize: 11, color: T.textMuted, transition: "transform .2s", display: "inline-block", transform: folder.collapsed ? "rotate(-90deg)" : "rotate(0deg)", flexShrink: 0 }}
+        >▼</span>
+
+        <span style={{ fontSize: 14 }}>{folder.collapsed ? "📁" : "📂"}</span>
+
+        {renaming ? (
+          <input
+            value={renameVal}
+            onChange={e => setRenameVal(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") { onRename(colId, folder.id, renameVal); setRenaming(false); }
+              if (e.key === "Escape") { setRenaming(false); setRenameVal(folder.name); }
+            }}
+            onBlur={() => { onRename(colId, folder.id, renameVal); setRenaming(false); }}
+            style={{ ...s.input({ flex: 1, padding: "2px 8px", fontSize: 13, width: "auto" }), background: T.bg3 }}
+            autoFocus
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span
+            onClick={() => onToggle(colId, folder.id)}
+            style={{ flex: 1, fontSize: 13, fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >{folder.name}</span>
+        )}
+
+        {/* Badges */}
+        <span style={{ background: T.accent + "22", color: T.accent, borderRadius: 20, fontSize: 10, fontWeight: 700, padding: "1px 6px", flexShrink: 0 }}>
+          {completedCount}/{folderCards.length}
+        </span>
+
+        {/* Ações */}
+        <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <button
+            title="Renomear"
+            onClick={() => setRenaming(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}
+          >✏️</button>
+          <button
+            title="Excluir pasta"
+            onClick={() => onDelete(colId, folder.id)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}
+          >🗑️</button>
+        </div>
+      </div>
+
+      {/* Cards dentro da pasta */}
+      {!folder.collapsed && (
+        <div
+          onDragOver={e => { e.preventDefault(); onDragOverFolder({ colId, folderId: folder.id }); }}
+          onDrop={e => { e.preventDefault(); onDropFolder(e, colId, folder.id); }}
+          style={{
+            background: T.bg1,
+            border: `1.5px solid ${isDragOver ? T.accent : T.border}`,
+            borderTop: "none",
+            borderRadius: "0 0 10px 10px",
+            padding: folderCards.length === 0 ? "10px" : "8px",
+            minHeight: 40,
+            transition: "border-color .15s",
+          }}
+        >
+          {folderCards.length === 0 && (
+            <p style={{ margin: 0, fontSize: 11, color: T.textMuted, textAlign: "center" }}>
+              Arraste cards aqui
+            </p>
+          )}
+          {folderCards.map((card, idx) => (
+            <div key={card.id} style={{ position: "relative" }}>
+              <KanbanCard
+                card={card}
+                colId={colId}
+                members={members}
+                onOpen={onOpen}
+                onDelete={(cid, colId) => { onRemoveCard(colId, cid); onDeleteCard(cid, colId); }}
+                onComplete={onComplete}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                realIndex={idx}
+                totalRealCards={folderCards.length}
+                presence={presence}
+              />
+              {/* Botão remover da pasta */}
+              <button
+                title="Remover da pasta"
+                onClick={() => onRemoveCard(colId, card.id)}
+                style={{
+                  position: "absolute", top: 8, right: 80,
+                  background: T.bg4, border: `1px solid ${T.border}`,
+                  borderRadius: 6, cursor: "pointer", color: T.textMuted,
+                  fontSize: 10, padding: "1px 5px", fontFamily: "inherit",
+                  fontWeight: 700, lineHeight: 1.4,
+                }}
+              >↑ Pasta</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── BOARD TAB ──────────────────────────────────────────── */
 function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode, presence }) {
   const [modal, setModal] = useState(null);
@@ -999,6 +1156,75 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
+  const [folders, setFolders] = useState({}); // { colId: [{ id, name, cardIds, collapsed }] }
+const [folderModal, setFolderModal] = useState(null); // { colId } | null
+const [dragOverFolder, setDragOverFolder] = useState(null); // { colId, folderId }
+
+const getFolders = (colId) => folders[colId] || [];
+
+const createFolder = (colId, name) => {
+  setFolders(f => ({
+    ...f,
+    [colId]: [...(f[colId] || []), { id: uid(), name, cardIds: [], collapsed: false }]
+  }));
+};
+
+const toggleFolder = (colId, folderId) => {
+  setFolders(f => ({
+    ...f,
+    [colId]: (f[colId] || []).map(folder =>
+      folder.id === folderId ? { ...folder, collapsed: !folder.collapsed } : folder
+    )
+  }));
+};
+
+const deleteFolder = (colId, folderId) => {
+  if (!window.confirm("Excluir pasta? Os cards voltam para a coluna.")) return;
+  setFolders(f => ({
+    ...f,
+    [colId]: (f[colId] || []).filter(folder => folder.id !== folderId)
+  }));
+};
+
+const renameFolder = (colId, folderId, newName) => {
+  setFolders(f => ({
+    ...f,
+    [colId]: (f[colId] || []).map(folder =>
+      folder.id === folderId ? { ...folder, name: newName } : folder
+    )
+  }));
+};
+
+const addCardToFolder = (colId, folderId, cardId) => {
+  setFolders(f => {
+    const colFolders = (f[colId] || []).map(folder => ({
+      ...folder,
+      cardIds: folder.cardIds.filter(id => id !== cardId) // remove de qualquer pasta
+    }));
+    return {
+      ...f,
+      [colId]: colFolders.map(folder =>
+        folder.id === folderId
+          ? { ...folder, cardIds: [...folder.cardIds, cardId] }
+          : folder
+      )
+    };
+  });
+};
+
+const removeCardFromFolder = (colId, cardId) => {
+  setFolders(f => ({
+    ...f,
+    [colId]: (f[colId] || []).map(folder => ({
+      ...folder,
+      cardIds: folder.cardIds.filter(id => id !== cardId)
+    }))
+  }));
+};
+
+const getCardFolder = (colId, cardId) => {
+  return (folders[colId] || []).find(f => f.cardIds.includes(cardId)) || null;
+};
 
   const draggingColIdRef = useRef(null);
   const [draggingColId, setDraggingColId] = useState(null);
@@ -1247,6 +1473,73 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         )}
         {visibleCols.map(col => {
           const sortBy = colSortMap[col.id] || "manual";
+          {/* Cards fora de pasta */}
+{visibleCards
+  .filter(card => !getCardFolder(col.id, card.id))
+  .map((card) => {
+    const realIndex = sortedCards.findIndex(c => c.id === card.id);
+    return (
+      <div key={card.id}
+        onDragOver={e => { e.preventDefault(); if (dragOverFolder) setDragOverFolder(null); }}
+      >
+        <KanbanCard
+          card={card}
+          colId={col.id}
+          members={members}
+          onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+          onDelete={handleDelete}
+          onComplete={handleComplete}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+          realIndex={realIndex}
+          totalRealCards={sortedCards.length}
+          presence={presence}
+        />
+      </div>
+    );
+  })
+}
+
+{/* Pastas */}
+{getFolders(col.id).map(folder => (
+  <FolderBlock
+    key={folder.id}
+    folder={folder}
+    colId={col.id}
+    cards={col.cards}
+    members={members}
+    onToggle={toggleFolder}
+    onDelete={deleteFolder}
+    onRename={renameFolder}
+    onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+    onDeleteCard={handleDelete}
+    onComplete={handleComplete}
+    onMoveUp={handleMoveUp}
+    onMoveDown={handleMoveDown}
+    onRemoveCard={removeCardFromFolder}
+    onDragOverFolder={setDragOverFolder}
+    onDropFolder={(e, colId, folderId) => {
+      const cardData = e.dataTransfer.getData("card");
+      if (!cardData) return;
+      try {
+        const { card, fromCol } = JSON.parse(cardData);
+        // move card para esta coluna se veio de outra
+        if (fromCol !== colId) {
+          const newCols = columnsRef.current.map(c => {
+            if (c.id === fromCol) return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
+            if (c.id === colId) return { ...c, cards: [...c.cards, card] };
+            return c;
+          });
+          updateColumns(newCols);
+        }
+        addCardToFolder(colId, folderId, card.id);
+        setDragOverFolder(null);
+      } catch (err) { console.error(err); }
+    }}
+    dragOverFolder={dragOverFolder}
+    presence={presence}
+  />
+))}
           // sortedCards = the full ordered array for this column (respects manual/sort order)
           const sortedCards = getSortedCards(col);
           // visibleCards = only those that pass the current filter (for display)
@@ -1256,6 +1549,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
           const isDraggingThis = draggingColId === col.id;
 
           return (
+            
             <div
               key={col.id}
               className="kanban-col"
@@ -1300,6 +1594,11 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   <button onClick={e => { e.stopPropagation(); setColModal(col); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
                   <button onClick={e => { e.stopPropagation(); handleDeleteCol(col.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
                   <button onClick={e => { e.stopPropagation(); setModal({ card: null, colId: col.id }); }} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
+                <button
+  onClick={e => { e.stopPropagation(); setFolderModal({ colId: col.id }); }}
+  title="Nova pasta"
+  style={{ background: T.amberDim, color: T.amber, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+>📁</button>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
@@ -1341,6 +1640,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                 <QuickAdd colId={col.id} taskTypes={taskTypes} currentUser={currentUser} onAdd={handleQuickAdd} />
               </div>
             </div>
+            
           );
         })}
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
@@ -1367,6 +1667,13 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
       <ToastContainer toasts={toasts} />
     </div>
   );
+  {folderModal && (
+  <FolderModal
+    colId={folderModal.colId}
+    onSave={(name) => createFolder(folderModal.colId, name)}
+    onClose={() => setFolderModal(null)}
+  />
+)}
 }
 
 /* ─── USERS TAB ──────────────────────────────────────────── */
