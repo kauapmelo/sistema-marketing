@@ -1156,87 +1156,89 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
-  const [folders, setFolders] = useState({}); // { colId: [{ id, name, cardIds, collapsed }] }
-const [folderModal, setFolderModal] = useState(null); // { colId } | null
-const [dragOverFolder, setDragOverFolder] = useState(null); // { colId, folderId }
-
-const getFolders = (colId) => folders[colId] || [];
-
-const createFolder = (colId, name) => {
-  setFolders(f => ({
-    ...f,
-    [colId]: [...(f[colId] || []), { id: uid(), name, cardIds: [], collapsed: false }]
-  }));
-};
-
-const toggleFolder = (colId, folderId) => {
-  setFolders(f => ({
-    ...f,
-    [colId]: (f[colId] || []).map(folder =>
-      folder.id === folderId ? { ...folder, collapsed: !folder.collapsed } : folder
-    )
-  }));
-};
-
-const deleteFolder = (colId, folderId) => {
-  if (!window.confirm("Excluir pasta? Os cards voltam para a coluna.")) return;
-  setFolders(f => ({
-    ...f,
-    [colId]: (f[colId] || []).filter(folder => folder.id !== folderId)
-  }));
-};
-
-const renameFolder = (colId, folderId, newName) => {
-  setFolders(f => ({
-    ...f,
-    [colId]: (f[colId] || []).map(folder =>
-      folder.id === folderId ? { ...folder, name: newName } : folder
-    )
-  }));
-};
-
-const addCardToFolder = (colId, folderId, cardId) => {
-  setFolders(f => {
-    const colFolders = (f[colId] || []).map(folder => ({
-      ...folder,
-      cardIds: folder.cardIds.filter(id => id !== cardId) // remove de qualquer pasta
-    }));
-    return {
-      ...f,
-      [colId]: colFolders.map(folder =>
-        folder.id === folderId
-          ? { ...folder, cardIds: [...folder.cardIds, cardId] }
-          : folder
-      )
-    };
-  });
-};
-
-const removeCardFromFolder = (colId, cardId) => {
-  setFolders(f => ({
-    ...f,
-    [colId]: (f[colId] || []).map(folder => ({
-      ...folder,
-      cardIds: folder.cardIds.filter(id => id !== cardId)
-    }))
-  }));
-};
-
-const getCardFolder = (colId, cardId) => {
-  return (folders[colId] || []).find(f => f.cardIds.includes(cardId)) || null;
-};
+  const [folders, setFolders] = useState({});
+  const [folderModal, setFolderModal] = useState(null);
+  const [dragOverFolder, setDragOverFolder] = useState(null);
 
   const draggingColIdRef = useRef(null);
   const [draggingColId, setDraggingColId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
   const dragTypeRef = useRef(null);
 
+  /* ── Folder helpers ── */
+  const getFolders = (colId) => folders[colId] || [];
+
+  const createFolder = (colId, name) => {
+    setFolders(f => ({
+      ...f,
+      [colId]: [...(f[colId] || []), { id: uid(), name, cardIds: [], collapsed: false }],
+    }));
+  };
+
+  const toggleFolder = (colId, folderId) => {
+    setFolders(f => ({
+      ...f,
+      [colId]: (f[colId] || []).map(folder =>
+        folder.id === folderId ? { ...folder, collapsed: !folder.collapsed } : folder
+      ),
+    }));
+  };
+
+  const deleteFolder = (colId, folderId) => {
+    if (!window.confirm("Excluir pasta? Os cards voltam para a coluna.")) return;
+    setFolders(f => ({
+      ...f,
+      [colId]: (f[colId] || []).filter(folder => folder.id !== folderId),
+    }));
+  };
+
+  const renameFolder = (colId, folderId, newName) => {
+    setFolders(f => ({
+      ...f,
+      [colId]: (f[colId] || []).map(folder =>
+        folder.id === folderId ? { ...folder, name: newName } : folder
+      ),
+    }));
+  };
+
+  const addCardToFolder = (colId, folderId, cardId) => {
+    setFolders(f => {
+      const colFolders = (f[colId] || []).map(folder => ({
+        ...folder,
+        cardIds: folder.cardIds.filter(id => id !== cardId),
+      }));
+      return {
+        ...f,
+        [colId]: colFolders.map(folder =>
+          folder.id === folderId
+            ? { ...folder, cardIds: [...folder.cardIds, cardId] }
+            : folder
+        ),
+      };
+    });
+  };
+
+  const removeCardFromFolder = (colId, cardId) => {
+    setFolders(f => ({
+      ...f,
+      [colId]: (f[colId] || []).map(folder => ({
+        ...folder,
+        cardIds: folder.cardIds.filter(id => id !== cardId),
+      })),
+    }));
+  };
+
+  const getCardFolder = (colId, cardId) =>
+    (folders[colId] || []).find(f => f.cardIds.includes(cardId)) || null;
+
+  /* ── Toast ── */
   const addToast = useCallback((title, points) => {
     const id = uid();
     setToasts(ts => [...ts, { id, title, points }]);
     setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 3600);
   }, []);
 
+  /* ── Derived data ── */
   const sortedCols = [...columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const effectiveFilter = myCardsMode ? currentUser?.id : filterMember;
 
@@ -1268,6 +1270,7 @@ const getCardFolder = (colId, cardId) => {
   const columnsRef = useRef(columns);
   useEffect(() => { columnsRef.current = columns; }, [columns]);
 
+  /* ── Column drag ── */
   const handleColDragStart = useCallback((e, colId) => {
     e.stopPropagation();
     dragTypeRef.current = "col";
@@ -1282,9 +1285,7 @@ const getCardFolder = (colId, cardId) => {
     e.preventDefault();
     e.stopPropagation();
     if (dragTypeRef.current !== "col") return;
-    if (colId !== draggingColIdRef.current) {
-      setDragOverColId(colId);
-    }
+    if (colId !== draggingColIdRef.current) setDragOverColId(colId);
   }, []);
 
   const handleColDrop = useCallback((e, toColId) => {
@@ -1292,76 +1293,64 @@ const getCardFolder = (colId, cardId) => {
     e.stopPropagation();
     const fromColId = draggingColIdRef.current;
     if (!fromColId || fromColId === toColId || dragTypeRef.current !== "col") {
-      setDraggingColId(null);
-      setDragOverColId(null);
-      draggingColIdRef.current = null;
-      dragTypeRef.current = null;
+      setDraggingColId(null); setDragOverColId(null);
+      draggingColIdRef.current = null; dragTypeRef.current = null;
       return;
     }
-    const currentCols = columnsRef.current;
-    const ordered = [...currentCols].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const ordered = [...columnsRef.current].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const fromIdx = ordered.findIndex(c => c.id === fromColId);
     const toIdx   = ordered.findIndex(c => c.id === toColId);
     if (fromIdx < 0 || toIdx < 0) {
-      setDraggingColId(null);
-      setDragOverColId(null);
-      draggingColIdRef.current = null;
-      dragTypeRef.current = null;
+      setDraggingColId(null); setDragOverColId(null);
+      draggingColIdRef.current = null; dragTypeRef.current = null;
       return;
     }
     const [moved] = ordered.splice(fromIdx, 1);
     ordered.splice(toIdx, 0, moved);
-    const reordered = ordered.map((c, i) => ({ ...c, order: i }));
-    updateColumns(reordered);
-    setDraggingColId(null);
-    setDragOverColId(null);
-    draggingColIdRef.current = null;
-    dragTypeRef.current = null;
+    updateColumns(ordered.map((c, i) => ({ ...c, order: i })));
+    setDraggingColId(null); setDragOverColId(null);
+    draggingColIdRef.current = null; dragTypeRef.current = null;
   }, [updateColumns]);
 
   const handleColDragEnd = useCallback(() => {
-    setDraggingColId(null);
-    setDragOverColId(null);
-    draggingColIdRef.current = null;
-    dragTypeRef.current = null;
+    setDraggingColId(null); setDragOverColId(null);
+    draggingColIdRef.current = null; dragTypeRef.current = null;
   }, []);
 
-  // FIX: Move up/down operate on the full (unfiltered) cards array.
-  // The real index is passed from the render loop below, so these functions
-  // just swap by that known index — no find() needed against a filtered list.
+  /* ── Card actions ── */
   const handleMoveUp = useCallback((cardId, colId) => {
-    const newCols = columnsRef.current.map(col => {
+    updateColumns(columnsRef.current.map(col => {
       if (col.id !== colId) return col;
       const idx = col.cards.findIndex(c => c.id === cardId);
       if (idx <= 0) return col;
       const cards = [...col.cards];
       [cards[idx - 1], cards[idx]] = [cards[idx], cards[idx - 1]];
       return { ...col, cards };
-    });
-    updateColumns(newCols);
+    }));
   }, [updateColumns]);
 
   const handleMoveDown = useCallback((cardId, colId) => {
-    const newCols = columnsRef.current.map(col => {
+    updateColumns(columnsRef.current.map(col => {
       if (col.id !== colId) return col;
       const idx = col.cards.findIndex(c => c.id === cardId);
       if (idx < 0 || idx >= col.cards.length - 1) return col;
       const cards = [...col.cards];
       [cards[idx], cards[idx + 1]] = [cards[idx + 1], cards[idx]];
       return { ...col, cards };
-    });
-    updateColumns(newCols);
+    }));
   }, [updateColumns]);
 
   const handleComplete = useCallback((card, fromColId) => {
     if (card.completed) return;
-    const newCols = columnsRef.current.map(col => {
+    updateColumns(columnsRef.current.map(col => {
       if (col.id !== fromColId) return col;
       return { ...col, cards: col.cards.map(c => c.id === card.id ? { ...c, completed: true } : c) };
-    });
-    updateColumns(newCols);
+    }));
     toArr(card.members).forEach(mid => {
-      if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`); }
+      if (mid !== currentUser?.id) {
+        const mb = members.find(m => m.id === mid);
+        if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`);
+      }
     });
     addToast(card.title, card.points || getPriority(card.priority).points);
   }, [updateColumns, members, currentUser, onNotify, addToast]);
@@ -1374,12 +1363,11 @@ const getCardFolder = (colId, cardId) => {
     try {
       const { card, fromCol } = JSON.parse(cardData);
       if (fromCol === toColId) return;
-      const newCols = columnsRef.current.map(col => {
+      updateColumns(columnsRef.current.map(col => {
         if (col.id === fromCol) return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
         if (col.id === toColId) return { ...col, cards: [...col.cards, card] };
         return col;
-      });
-      updateColumns(newCols);
+      }));
     } catch (err) { console.error("Drop error:", err); }
   }, [updateColumns]);
 
@@ -1389,7 +1377,10 @@ const getCardFolder = (colId, cardId) => {
       if (form.id) return { ...col, cards: col.cards.map(c => c.id === form.id ? { ...form } : c) };
       const newCard = { ...form, id: uid() };
       toArr(newCard.members).forEach(mid => {
-        if (mid !== currentUser?.id) { const mb = members.find(m => m.id === mid); if (mb) onNotify(mb.id, `Você foi adicionado ao card "${newCard.title}"`); }
+        if (mid !== currentUser?.id) {
+          const mb = members.find(m => m.id === mid);
+          if (mb) onNotify(mb.id, `Você foi adicionado ao card "${newCard.title}"`);
+        }
       });
       return { ...col, cards: [...col.cards, newCard] };
     });
@@ -1398,13 +1389,16 @@ const getCardFolder = (colId, cardId) => {
   };
 
   const handleQuickAdd = (newCard, colId) => {
-    const newCols = columnsRef.current.map(col => col.id === colId ? { ...col, cards: [...col.cards, newCard] } : col);
-    updateColumns(newCols);
+    updateColumns(columnsRef.current.map(col =>
+      col.id === colId ? { ...col, cards: [...col.cards, newCard] } : col
+    ));
   };
 
   const handleDelete = (cid, colId) => {
     if (!window.confirm("Excluir este card?")) return;
-    updateColumns(columnsRef.current.map(col => col.id === colId ? { ...col, cards: col.cards.filter(c => c.id !== cid) } : col));
+    updateColumns(columnsRef.current.map(col =>
+      col.id === colId ? { ...col, cards: col.cards.filter(c => c.id !== cid) } : col
+    ));
   };
 
   const handleSaveCol = colData => {
@@ -1428,8 +1422,10 @@ const getCardFolder = (colId, cardId) => {
 
   const clearFilters = () => { setSearch(""); setFilterMember("all"); setMyCardsMode(false); };
 
+  /* ── Render ── */
   return (
     <div>
+      {/* Toolbar */}
       <div className="board-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap", background: T.bg1, borderRadius: 14, padding: "10px 14px", border: `1px solid ${T.border}` }}>
         <div style={{ position: "relative", flex: 1, minWidth: 130, maxWidth: 210 }}>
           <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", color: T.textMuted }}>🔍</span>
@@ -1445,127 +1441,70 @@ const getCardFolder = (colId, cardId) => {
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 20, padding: "4px 10px", animation: "fadeIn .2s ease" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.accent, display: "inline-block", animation: "pulse 2s infinite" }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: T.accent }}>
-              {activeFilterName ? `${activeFilterName}` : ""}{activeFilterName && search ? " · " : ""}{search ? `"${search}"` : ""}{" · "}{totalVisible} card{totalVisible !== 1 ? "s" : ""}
+              {activeFilterName ? `${activeFilterName}` : ""}
+              {activeFilterName && search ? " · " : ""}
+              {search ? `"${search}"` : ""}
+              {" · "}{totalVisible} card{totalVisible !== 1 ? "s" : ""}
             </span>
             <button onClick={clearFilters} style={{ background: "none", border: "none", cursor: "pointer", color: T.accent, fontSize: 14, padding: 0, lineHeight: 1, marginLeft: 2 }}>×</button>
           </div>
         )}
         <div className="filter-bar-right" style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={() => { const firstColId = visibleCols[0]?.id || sortedCols[0]?.id; if (!firstColId) return; setModal({ card: null, colId: firstColId }); }} style={s.btn(T.accent, { fontSize: 13 })}>+ Card</button>
+          <button
+            onClick={() => {
+              const firstColId = visibleCols[0]?.id || sortedCols[0]?.id;
+              if (!firstColId) return;
+              setModal({ card: null, colId: firstColId });
+            }}
+            style={s.btn(T.accent, { fontSize: 13 })}>+ Card</button>
           <button onClick={() => setColModal({})} style={s.btn(T.bg4, { color: T.text, fontSize: 13 })}>+ Coluna</button>
         </div>
       </div>
 
+      {/* Column drag hint */}
       {draggingColId && (
         <div style={{ background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 8, padding: "6px 14px", marginBottom: 10, fontSize: 12, color: T.accent, display: "flex", alignItems: "center", gap: 6 }}>
           <span>📌</span> Arrastando coluna — solte sobre outra coluna para reordenar
         </div>
       )}
 
+      {/* Board */}
       <div className="kanban-board" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
-        {visibleCols.length === 0 && (effectiveFilter && effectiveFilter !== "all" || search) && (
+
+        {/* Empty state */}
+        {visibleCols.length === 0 && ((effectiveFilter && effectiveFilter !== "all") || search) && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 12, background: T.bg1, borderRadius: 16, border: `1px dashed ${T.border}`, flex: 1, minWidth: 300 }}>
             <span style={{ fontSize: 36 }}>🔍</span>
             <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: T.text }}>Nenhum card encontrado</p>
-            <p style={{ margin: 0, fontSize: 13, color: T.textMuted, textAlign: "center" }}>{activeFilterName ? `${activeFilterName} não tem cards atribuídos.` : "Nenhum card corresponde à busca."}</p>
+            <p style={{ margin: 0, fontSize: 13, color: T.textMuted, textAlign: "center" }}>
+              {activeFilterName ? `${activeFilterName} não tem cards atribuídos.` : "Nenhum card corresponde à busca."}
+            </p>
             <button onClick={clearFilters} style={s.btn(T.bg3, { color: T.textSub, fontSize: 12, marginTop: 4 })}>Ver todos →</button>
           </div>
         )}
+
+        {/* Columns */}
         {visibleCols.map(col => {
           const sortBy = colSortMap[col.id] || "manual";
-          {/* Cards fora de pasta */}
-{visibleCards
-  .filter(card => !getCardFolder(col.id, card.id))
-  .map((card) => {
-    const realIndex = sortedCards.findIndex(c => c.id === card.id);
-    return (
-      <div key={card.id}
-        onDragOver={e => { e.preventDefault(); if (dragOverFolder) setDragOverFolder(null); }}
-      >
-        <KanbanCard
-          card={card}
-          colId={col.id}
-          members={members}
-          onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-          onDelete={handleDelete}
-          onComplete={handleComplete}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-          realIndex={realIndex}
-          totalRealCards={sortedCards.length}
-          presence={presence}
-        />
-      </div>
-    );
-  })
-}
-
-{/* Pastas */}
-{getFolders(col.id).map(folder => (
-  <FolderBlock
-    key={folder.id}
-    folder={folder}
-    colId={col.id}
-    cards={col.cards}
-    members={members}
-    onToggle={toggleFolder}
-    onDelete={deleteFolder}
-    onRename={renameFolder}
-    onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-    onDeleteCard={handleDelete}
-    onComplete={handleComplete}
-    onMoveUp={handleMoveUp}
-    onMoveDown={handleMoveDown}
-    onRemoveCard={removeCardFromFolder}
-    onDragOverFolder={setDragOverFolder}
-    onDropFolder={(e, colId, folderId) => {
-      const cardData = e.dataTransfer.getData("card");
-      if (!cardData) return;
-      try {
-        const { card, fromCol } = JSON.parse(cardData);
-        // move card para esta coluna se veio de outra
-        if (fromCol !== colId) {
-          const newCols = columnsRef.current.map(c => {
-            if (c.id === fromCol) return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
-            if (c.id === colId) return { ...c, cards: [...c.cards, card] };
-            return c;
-          });
-          updateColumns(newCols);
-        }
-        addCardToFolder(colId, folderId, card.id);
-        setDragOverFolder(null);
-      } catch (err) { console.error(err); }
-    }}
-    dragOverFolder={dragOverFolder}
-    presence={presence}
-  />
-))}
-          // sortedCards = the full ordered array for this column (respects manual/sort order)
           const sortedCards = getSortedCards(col);
-          // visibleCards = only those that pass the current filter (for display)
           const visibleCards = sortedCards.filter(filterCard);
           const colPts = col.cards.reduce((a, c) => a + (c.points || 0), 0);
           const isDragOver = dragOverColId === col.id;
           const isDraggingThis = draggingColId === col.id;
+          const colFolders = getFolders(col.id);
 
           return (
-            
             <div
               key={col.id}
               className="kanban-col"
               onDragOver={e => {
                 e.preventDefault();
-                if (dragTypeRef.current === "col") {
-                  handleColDragOver(e, col.id);
-                }
+                if (dragTypeRef.current === "col") handleColDragOver(e, col.id);
               }}
               onDrop={e => {
                 const dtype = e.dataTransfer.getData("dragType");
-                if (dtype === "col") {
-                  handleColDrop(e, col.id);
-                } else {
-                  handleCardDrop(e, col.id);
-                }
+                if (dtype === "col") handleColDrop(e, col.id);
+                else handleCardDrop(e, col.id);
               }}
               onDragEnd={handleColDragEnd}
               style={{
@@ -1574,8 +1513,10 @@ const getCardFolder = (colId, cardId) => {
                 padding: 10, flexShrink: 0, opacity: isDraggingThis ? 0.45 : 1,
                 transition: "border-color .2s, opacity .2s, transform .15s",
                 transform: isDragOver && dragTypeRef.current === "col" ? "scale(1.015)" : "scale(1)",
-                boxShadow: isDragOver && dragTypeRef.current === "col" ? `0 0 0 2px ${T.accent}44` : "none"
-              }}>
+                boxShadow: isDragOver && dragTypeRef.current === "col" ? `0 0 0 2px ${T.accent}44` : "none",
+              }}
+            >
+              {/* Column header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                   <div
@@ -1594,17 +1535,22 @@ const getCardFolder = (colId, cardId) => {
                   <button onClick={e => { e.stopPropagation(); setColModal(col); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>✏️</button>
                   <button onClick={e => { e.stopPropagation(); handleDeleteCol(col.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}>🗑️</button>
                   <button onClick={e => { e.stopPropagation(); setModal({ card: null, colId: col.id }); }} style={{ background: col.color + "22", color: col.color, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>+</button>
-                <button
-  onClick={e => { e.stopPropagation(); setFolderModal({ colId: col.id }); }}
-  title="Nova pasta"
-  style={{ background: T.amberDim, color: T.amber, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
->📁</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setFolderModal({ colId: col.id }); }}
+                    title="Nova pasta"
+                    style={{ background: T.amberDim, color: T.amber, border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+                  >📁</button>
                 </div>
               </div>
+
+              {/* Column meta row */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
                 <span style={{ fontSize: 10, color: T.amber, fontWeight: 700 }}>⭐ {colPts} pts</span>
-                <select value={sortBy} onChange={e => setColSortMap(m => ({ ...m, [col.id]: e.target.value }))}
-                  style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, color: T.textMuted, fontSize: 10, fontFamily: "inherit", padding: "2px 18px 2px 6px", cursor: "pointer", outline: "none", colorScheme: "dark", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center" }}>
+                <select
+                  value={sortBy}
+                  onChange={e => setColSortMap(m => ({ ...m, [col.id]: e.target.value }))}
+                  style={{ background: T.bg3, border: `1px solid ${T.border}`, borderRadius: 6, color: T.textMuted, fontSize: 10, fontFamily: "inherit", padding: "2px 18px 2px 6px", cursor: "pointer", outline: "none", colorScheme: "dark", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center" }}
+                >
                   <option value="manual">Manual</option>
                   <option value="due">Prazo</option>
                   <option value="points">Pontos</option>
@@ -1612,70 +1558,141 @@ const getCardFolder = (colId, cardId) => {
                 </select>
               </div>
 
-              {/* FIX: Pass realIndex (index in the full sortedCards array) and
-                  totalRealCards (total unfiltered count). KanbanCard uses these
-                  for isFirst/isLast so the ▲▼ buttons work correctly under any filter. */}
-              {visibleCards.map((card) => {
-                const realIndex = sortedCards.findIndex(c => c.id === card.id);
-                return (
-                  <KanbanCard
-                    key={card.id}
-                    card={card}
-                    colId={col.id}
-                    members={members}
-                    onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                    onDelete={handleDelete}
-                    onComplete={handleComplete}
-                    onMoveUp={handleMoveUp}
-                    onMoveDown={handleMoveDown}
-                    realIndex={realIndex}
-                    totalRealCards={sortedCards.length}
-                    presence={presence}
-                  />
-                );
-              })}
+              {/* Cards fora de pastas */}
+              {visibleCards
+                .filter(card => !getCardFolder(col.id, card.id))
+                .map(card => {
+                  const realIndex = sortedCards.findIndex(c => c.id === card.id);
+                  return (
+                    <div
+                      key={card.id}
+                      onDragOver={e => { e.preventDefault(); if (dragOverFolder) setDragOverFolder(null); }}
+                    >
+                      <KanbanCard
+                        card={card}
+                        colId={col.id}
+                        members={members}
+                        onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+                        onDelete={handleDelete}
+                        onComplete={handleComplete}
+                        onMoveUp={handleMoveUp}
+                        onMoveDown={handleMoveDown}
+                        realIndex={realIndex}
+                        totalRealCards={sortedCards.length}
+                        presence={presence}
+                      />
+                    </div>
+                  );
+                })}
 
-              {visibleCards.length === 0 && <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>}
+              {/* Pastas */}
+              {colFolders.map(folder => (
+                <FolderBlock
+                  key={folder.id}
+                  folder={folder}
+                  colId={col.id}
+                  cards={col.cards}
+                  members={members}
+                  onToggle={toggleFolder}
+                  onDelete={deleteFolder}
+                  onRename={renameFolder}
+                  onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+                  onDeleteCard={handleDelete}
+                  onComplete={handleComplete}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  onRemoveCard={removeCardFromFolder}
+                  onDragOverFolder={setDragOverFolder}
+                  onDropFolder={(e, colId, folderId) => {
+                    const cardData = e.dataTransfer.getData("card");
+                    if (!cardData) return;
+                    try {
+                      const { card, fromCol } = JSON.parse(cardData);
+                      if (fromCol !== colId) {
+                        updateColumns(columnsRef.current.map(c => {
+                          if (c.id === fromCol) return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
+                          if (c.id === colId) return { ...c, cards: [...c.cards, card] };
+                          return c;
+                        }));
+                      }
+                      addCardToFolder(colId, folderId, card.id);
+                      setDragOverFolder(null);
+                    } catch (err) { console.error(err); }
+                  }}
+                  dragOverFolder={dragOverFolder}
+                  presence={presence}
+                />
+              ))}
+
+              {/* Empty col hint */}
+              {visibleCards.length === 0 && colFolders.length === 0 && (
+                <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>
+                  Arraste um card aqui
+                </div>
+              )}
+
+              {/* Quick add */}
               <div style={{ marginTop: 4 }}>
                 <QuickAdd colId={col.id} taskTypes={taskTypes} currentUser={currentUser} onAdd={handleQuickAdd} />
               </div>
             </div>
-            
           );
         })}
+
+        {/* Add column button */}
         <div style={{ minWidth: 180, flexShrink: 0, paddingTop: 2 }}>
-          <button onClick={() => setColModal({})}
+          <button
+            onClick={() => setColModal({})}
             style={{ background: T.bg3, border: `2px dashed ${T.border}`, borderRadius: 12, padding: "12px 20px", cursor: "pointer", color: T.textMuted, fontSize: 13, fontWeight: 700, fontFamily: "inherit", width: "100%", transition: "all .2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textMuted; }}
+          >
             + Adicionar coluna
           </button>
         </div>
       </div>
 
+      {/* Modals */}
       {modal && (
-        <CardModal card={modal.card} colId={modal.colId} members={members} currentUser={currentUser}
-          taskTypes={taskTypes} onSave={handleSave} onClose={() => setModal(null)}
-          onNotify={onNotify} onManageTypes={() => setTypesModal(true)} presence={presence} />
+        <CardModal
+          card={modal.card}
+          colId={modal.colId}
+          members={members}
+          currentUser={currentUser}
+          taskTypes={taskTypes}
+          onSave={handleSave}
+          onClose={() => setModal(null)}
+          onNotify={onNotify}
+          onManageTypes={() => setTypesModal(true)}
+          presence={presence}
+        />
       )}
       {colModal !== null && (
-        <ColumnModal col={colModal && Object.keys(colModal).length > 0 ? colModal : null} onSave={handleSaveCol} onClose={() => setColModal(null)} />
+        <ColumnModal
+          col={colModal && Object.keys(colModal).length > 0 ? colModal : null}
+          onSave={handleSaveCol}
+          onClose={() => setColModal(null)}
+        />
       )}
       {typesModal && (
-        <ManageTypesModal types={taskTypes} onSave={list => { updateTaskTypes(list); setTypesModal(false); }} onClose={() => setTypesModal(false)} />
+        <ManageTypesModal
+          types={taskTypes}
+          onSave={list => { updateTaskTypes(list); setTypesModal(false); }}
+          onClose={() => setTypesModal(false)}
+        />
       )}
+      {folderModal && (
+        <FolderModal
+          colId={folderModal.colId}
+          onSave={name => createFolder(folderModal.colId, name)}
+          onClose={() => setFolderModal(null)}
+        />
+      )}
+
       <ToastContainer toasts={toasts} />
     </div>
   );
-  {folderModal && (
-  <FolderModal
-    colId={folderModal.colId}
-    onSave={(name) => createFolder(folderModal.colId, name)}
-    onClose={() => setFolderModal(null)}
-  />
-)}
 }
-
 /* ─── USERS TAB ──────────────────────────────────────────── */
 function UsersTab({ members, updateMembers, columns, presence }) {
   const [editing, setEditing] = useState(null);
