@@ -840,9 +840,11 @@ const toggleMember = id => {
 // FIX: isFirst/isLast are now based on the card's real index in the full column array,
 // not its index among filtered/visible cards. This ensures the buttons work correctly
 // in both "Meus cards" mode and with search filters active.
-function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, realIndex, totalRealCards, presence }) {
+function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, realIndex, totalRealCards, presence, onDragReorder }) {
   const [drag, setDrag] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);  // <-- ADICIONE ESTA LINHA
+  
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
   const checklist = toArr(card.checklist);
   const done = checklist.filter(c => c.done).length;
@@ -852,25 +854,78 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   const dueDate = card.due ? card.due.slice(0, 10) : null;
   const isOverdue = dueDate && dueDate < today && !isCompleted;
 
+
+  // ADICIONE ESTAS FUNÇÕES
+  const handleDragStart = (e) => {
+    setDrag(true);
+    e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId }));
+    e.dataTransfer.setData("dragType", "card");
+    e.dataTransfer.effectAllowed = "move";
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(true);
+  };
+  
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+  
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const dragData = e.dataTransfer.getData("card");
+    if (!dragData) return;
+    
+    try {
+      const { card: draggedCard, fromCol: fromColId } = JSON.parse(dragData);
+      
+      // Se for da mesma coluna, reordena
+      if (fromColId === colId && draggedCard.id !== card.id && onDragReorder) {
+        onDragReorder(fromColId, draggedCard.id, card.id);
+      }
+    } catch (err) {
+      console.error("Reorder error:", err);
+    }
+  };
+
   // Use real index for first/last detection — works correctly with any filter
   const isFirst = realIndex === 0;
   const isLast = realIndex === totalRealCards - 1;
 
   const handleComplete = (e) => {
     e.stopPropagation();
-    if (completing || isCompleted) return;
+    if (completing) return;  // Remove o || isCompleted daqui
     setCompleting(true);
     setTimeout(() => { onComplete(card, colId); setCompleting(false); }, 320);
   };
 
+  // ADICIONE ESTA FUNÇÃO PARA VERIFICAR TAREFAS PRESTES A VENCER
+  const isUpcomingDue = () => {
+    if (!card.due || isCompleted) return false;
+    const dueDateObj = new Date(card.due);
+    const now = new Date();
+    const hoursLeft = (dueDateObj - now) / (1000 * 60 * 60);
+    return hoursLeft > 0 && hoursLeft <= 24;
+  };
+  
+  const upcoming = isUpcomingDue();
+
   return (
     <div
       draggable
-      onDragStart={e => { setDrag(true); e.dataTransfer.setData("card", JSON.stringify({ card, fromCol: colId })); }}
-      onDragEnd={() => setDrag(false)}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onDragEnd={() => { setDrag(false); setDragOver(false); }}
       style={{
-        background: isCompleted ? "#22c55e08" : T.bg3, borderRadius: 10, padding: "12px 12px",
-        border: `1.5px solid ${completing ? T.green : isCompleted ? T.green : drag ? T.accent : isOverdue ? T.red + "77" : T.border}`,
+        background: isCompleted ? "#22c55e08" : (dragOver ? T.accentDim : T.bg3),
+        borderRadius: 10, padding: "12px 12px",
+        border: `1.5px solid ${completing ? T.green : isCompleted ? T.green : drag ? T.accent : dragOver ? T.accent : isOverdue ? T.red + "77" : T.border}`,
         cursor: "grab", opacity: drag ? .5 : 1, marginBottom: 8,
         transition: "border .3s, background .3s",
         animation: completing ? "completePop .32s ease" : "none",
@@ -880,28 +935,29 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          <button
-            title="Mover para cima"
-            onClick={e => { e.stopPropagation(); onMoveUp(card.id, colId); }}
-            disabled={isFirst}
-            style={{
-              background: "none", border: "none",
-              cursor: isFirst ? "default" : "pointer",
-              color: isFirst ? T.textMuted + "44" : T.textMuted,
-              fontSize: 11, padding: "0 1px", lineHeight: 1
-            }}>▲</button>
-          <button
-            title="Mover para baixo"
-            onClick={e => { e.stopPropagation(); onMoveDown(card.id, colId); }}
-            disabled={isLast}
-            style={{
-              background: "none", border: "none",
-              cursor: isLast ? "default" : "pointer",
-              color: isLast ? T.textMuted + "44" : T.textMuted,
-              fontSize: 11, padding: "0 1px", lineHeight: 1
-            }}>▼</button>
-          <button title={isCompleted ? "Já concluído" : "Marcar como concluído"} onClick={handleComplete} disabled={completing || isCompleted}
-            style={{ background: isCompleted ? T.green + "33" : completing ? T.green + "40" : T.green + "18", border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`, borderRadius: 6, cursor: isCompleted ? "default" : "pointer", color: T.green, fontSize: 12, padding: "2px 5px", fontFamily: "inherit", fontWeight: 700, lineHeight: 1.4, transition: "background .15s" }}>✅</button>
+          {/* REMOVA OS BOTÕES ▲ e ▼ - ELES NÃO SERÃO MAIS USADOS */}
+          {/* Botão de concluir atualizado */}
+          <button 
+            title={isCompleted ? "Desmarcar como concluído" : "Marcar como concluído"} 
+            onClick={handleComplete} 
+            disabled={completing}
+            style={{ 
+              background: isCompleted ? T.green + "33" : (completing ? T.green + "40" : T.green + "18"), 
+              border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`, 
+              borderRadius: 6, 
+              cursor: "pointer", 
+              color: T.green, 
+              fontSize: 12, 
+              padding: "2px 5px", 
+              fontFamily: "inherit", 
+              fontWeight: 700, 
+              lineHeight: 1.4, 
+              transition: "background .15s",
+              opacity: completing ? 0.6 : 1
+            }}
+          >
+            {isCompleted ? "↩️" : "✅"}
+          </button>
           <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
           <button onClick={() => onDelete(card.id, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>🗑️</button>
         </div>
@@ -918,7 +974,12 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {checklist.length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>☑️ {done}/{checklist.length}</span>}
           {toArr(card.comments).length > 0 && <span style={{ fontSize: 10, color: T.textMuted }}>💬 {toArr(card.comments).length}</span>}
-          {card.due && <span style={{ fontSize: 10, color: isOverdue ? T.red : T.textMuted }}>📅 {fmtDateTime(card.due)}</span>}
+          {card.due && (
+  <span style={{ fontSize: 10, color: isOverdue ? T.red : (upcoming ? T.amber : T.textMuted) }}>
+    📅 {fmtDateTime(card.due)}
+    {upcoming && !isOverdue && <span style={{ marginLeft: 4, color: T.amber }}>⚠️</span>}
+  </span>
+)}
           <span style={{ fontSize: 10, fontWeight: 700, color: pri.color }}>⭐{card.points}</span>
         </div>
       </div>
@@ -1171,6 +1232,26 @@ const setFolders = (updater) => {
   const [dragOverColId, setDragOverColId] = useState(null);
   const dragTypeRef = useRef(null);
 
+  const handleReorderCards = useCallback((colId, draggedCardId, targetCardId) => {
+  updateColumns(columnsRef.current.map(col => {
+    if (col.id !== colId) return col;
+    
+    const cards = [...col.cards];
+    const draggedIndex = cards.findIndex(c => c.id === draggedCardId);
+    const targetIndex = cards.findIndex(c => c.id === targetCardId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return col;
+    
+    // Remove o card arrastado
+    const [draggedCard] = cards.splice(draggedIndex, 1);
+    
+    // Insere na posição do target
+    cards.splice(targetIndex, 0, draggedCard);
+    
+    return { ...col, cards };
+  }));
+}, [updateColumns]);
+
   /* ── Folder helpers ── */
   const getFolders = (colId) => folders[colId] || [];
 
@@ -1347,19 +1428,38 @@ const setFolders = (updater) => {
   }, [updateColumns]);
 
   const handleComplete = useCallback((card, fromColId) => {
-    if (card.completed) return;
-    updateColumns(columnsRef.current.map(col => {
-      if (col.id !== fromColId) return col;
-      return { ...col, cards: col.cards.map(c => c.id === card.id ? { ...c, completed: true } : c) };
-    }));
+  // Toggle: se já estiver concluído, desconclui; se não, conclui
+  const newCompletedState = !card.completed;
+  
+  updateColumns(columnsRef.current.map(col => {
+    if (col.id !== fromColId) return col;
+    return {
+      ...col,
+      cards: col.cards.map(c =>
+        c.id === card.id ? { ...c, completed: newCompletedState } : c
+      )
+    };
+  }));
+  
+  // Se estiver CONCLUINDO (não desconcluindo), notifica e adiciona pontos
+  if (newCompletedState && !card.completed) {
     toArr(card.members).forEach(mid => {
       if (mid !== currentUser?.id) {
         const mb = members.find(m => m.id === mid);
-        if (mb) onNotify(mb.id, `"${card.title}" foi concluído!`);
+        if (mb) onNotify(mb.id, `✅ "${card.title}" foi concluído!`);
       }
     });
     addToast(card.title, card.points || getPriority(card.priority).points);
-  }, [updateColumns, members, currentUser, onNotify, addToast]);
+  } else if (!newCompletedState && card.completed) {
+    // Opcional: notificar que foi reaberto
+    toArr(card.members).forEach(mid => {
+      if (mid !== currentUser?.id) {
+        const mb = members.find(m => m.id === mid);
+        if (mb) onNotify(mb.id, `🔄 "${card.title}" foi reaberto!`);
+      }
+    });
+  }
+}, [updateColumns, members, currentUser, onNotify, addToast]);
 
   const handleCardDrop = useCallback((e, toColId) => {
     const dtype = e.dataTransfer.getData("dragType");
@@ -1575,18 +1675,19 @@ const setFolders = (updater) => {
                       onDragOver={e => { e.preventDefault(); if (dragOverFolder) setDragOverFolder(null); }}
                     >
                       <KanbanCard
-                        card={card}
-                        colId={col.id}
-                        members={members}
-                        onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                        onDelete={handleDelete}
-                        onComplete={handleComplete}
-                        onMoveUp={handleMoveUp}
-                        onMoveDown={handleMoveDown}
-                        realIndex={realIndex}
-                        totalRealCards={sortedCards.length}
-                        presence={presence}
-                      />
+  card={card}
+  colId={col.id}
+  members={members}
+  onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+  onDelete={handleDelete}
+  onComplete={handleComplete}
+  onMoveUp={handleMoveUp}
+  onMoveDown={handleMoveDown}
+  onDragReorder={handleReorderCards}  // Nova prop
+  realIndex={realIndex}
+  totalRealCards={sortedCards.length}
+  presence={presence}
+/>
                     </div>
                   );
                 })}
@@ -3515,6 +3616,77 @@ export default function App() {
 ];
 return () => unsubs.forEach(u => u());
   }, []);
+
+  // Adicionar após os outros useEffects
+useEffect(() => {
+  if (!currentUser || !columns.length) return;
+  
+  const checkUpcomingAndOverdueTasks = () => {
+    const now = new Date();
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    const allCards = columns.flatMap(col => 
+      col.cards.map(card => ({ ...card, colTitle: col.title }))
+    );
+    
+    // Tarefas prestes a vencer (próximas 24h)
+    const upcomingCards = allCards.filter(card => {
+      if (card.completed) return false;
+      if (!card.due) return false;
+      const dueDate = new Date(card.due);
+      return dueDate > now && dueDate <= next24h;
+    });
+    
+    // Tarefas já atrasadas
+    const overdueCards = allCards.filter(card => {
+      if (card.completed) return false;
+      if (!card.due) return false;
+      const dueDate = new Date(card.due);
+      return dueDate < now;
+    });
+    
+    // Notificar tarefas prestes a vencer (uma vez por dia)
+    upcomingCards.forEach(card => {
+      const dueDate = new Date(card.due);
+      const hoursLeft = Math.round((dueDate - now) / (1000 * 60 * 60));
+      const notifKey = `upcoming_${card.id}`;
+      const lastNotif = localStorage.getItem(notifKey);
+      const today = new Date().toISOString().slice(0, 10);
+      
+      if (!lastNotif || lastNotif !== today) {
+        toArr(card.members).forEach(mid => {
+          if (mid !== currentUser.id) {
+            onNotify(mid, `⚠️ "${card.title}" vence em ${hoursLeft}h (${fmtDateTime(card.due)})`);
+          }
+        });
+        localStorage.setItem(notifKey, today);
+      }
+    });
+    
+    // Notificar tarefas atrasadas (uma vez por dia)
+    overdueCards.forEach(card => {
+      const dueDate = new Date(card.due);
+      const daysLate = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+      const notifKey = `overdue_${card.id}`;
+      const lastNotif = localStorage.getItem(notifKey);
+      const today = new Date().toISOString().slice(0, 10);
+      
+      if (!lastNotif || lastNotif !== today) {
+        toArr(card.members).forEach(mid => {
+          if (mid !== currentUser.id) {
+            onNotify(mid, `🔴 "${card.title}" está ATRASADA há ${daysLate} dia(s) (vencia em ${fmtDateTime(card.due)})`);
+          }
+        });
+        localStorage.setItem(notifKey, today);
+      }
+    });
+  };
+  
+  checkUpcomingAndOverdueTasks();
+  const interval = setInterval(checkUpcomingAndOverdueTasks, 30 * 60 * 1000); // a cada 30 minutos
+  
+  return () => clearInterval(interval);
+}, [currentUser, columns, members, onNotify]);
 
   const updateMembers   = v => set(ref(db, 'members'), v);
   const updateColumns   = v => set(ref(db, 'columns'), v);
