@@ -3574,12 +3574,11 @@ export default function App() {
   const [notifs, setNotifs]         = useState({});
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
-  const [campanhas, setCampanhas] = useState([]);
-  const [folders, setFolders] = useState({});
+  const [campanhas, setCampanhas]   = useState([]);
+  const [folders, setFolders]       = useState({});
 
   const presence = usePresence();
 
-  // 🔧 MOVA ESTA FUNÇÃO PARA CIMA - ANTES DOS useEffects
   const onNotify = useCallback((memberId, text) => {
     const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
     setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
@@ -3592,19 +3591,158 @@ export default function App() {
 
   useOnlinePresence(currentUser?.id);
 
-  // useEffect com onNotify - agora funciona porque onNotify já foi definido
+  // ========== INICIALIZAÇÃO DO FIREBASE ==========
+  useEffect(() => {
+    // Verifica se o banco existe e inicializa se necessário
+    const checkAndInitDb = () => {
+      const dbRef = ref(db, '/');
+      onValue(dbRef, (snap) => {
+        if (!snap.exists()) {
+          // Cria dados iniciais
+          set(ref(db, '/'), { 
+            members: INIT_MEMBERS, 
+            columns: INIT_COLUMNS, 
+            events: INIT_EVENTS, 
+            social: INIT_SOCIAL, 
+            taskTypes: DEFAULT_TASK_TYPES,
+            folders: {}
+          });
+        }
+        setDbReady(true);
+      }, { onlyOnce: true });
+    };
+    
+    checkAndInitDb();
+  }, []);
+
+  // ========== CARREGA DADOS EM TEMPO REAL ==========
+  useEffect(() => {
+    if (!dbReady) return;
+
+    const unsubMembers = onValue(ref(db, 'members'), (snap) => {
+      const data = snap.val();
+      setMembers(data ? toArr(data) : []);
+    });
+
+    const unsubColumns = onValue(ref(db, 'columns'), (snap) => {
+      const data = snap.val();
+      setColumns(data ? normalizeCols(data) : []);
+    });
+
+    const unsubEvents = onValue(ref(db, 'events'), (snap) => {
+      const data = snap.val();
+      setEvents(data ? toArr(data) : []);
+    });
+
+    const unsubSocial = onValue(ref(db, 'social'), (snap) => {
+      const data = snap.val();
+      setSocialData(data || INIT_SOCIAL);
+    });
+
+    const unsubTaskTypes = onValue(ref(db, 'taskTypes'), (snap) => {
+      const data = snap.val();
+      setTaskTypes(data ? toArr(data) : DEFAULT_TASK_TYPES);
+    });
+
+    const unsubFolders = onValue(ref(db, 'folders'), (snap) => {
+      const data = snap.val();
+      setFolders(data || {});
+    });
+
+    const unsubCampanhas = onValue(ref(db, 'campanhas'), (snap) => {
+      const data = snap.val();
+      setCampanhas(data ? toArr(data) : []);
+    });
+
+    return () => {
+      unsubMembers();
+      unsubColumns();
+      unsubEvents();
+      unsubSocial();
+      unsubTaskTypes();
+      unsubFolders();
+      unsubCampanhas();
+    };
+  }, [dbReady]);
+
+  // ========== LOGIN AUTOMÁTICO ==========
+  useEffect(() => {
+    if (!dbReady || currentUser) return;
+    const savedId = localStorage.getItem(REMEMBER_KEY);
+    if (savedId && members.length > 0) {
+      const found = members.find(m => String(m.id) === String(savedId));
+      if (found) setCurrentUser(found);
+    }
+  }, [members, dbReady, currentUser]);
+
+  // ========== VERIFICAÇÃO DE TAREFAS PRESTES A VENCER ==========
   useEffect(() => {
     if (!currentUser || !columns.length) return;
     
     const checkUpcomingAndOverdueTasks = () => {
-      // ... resto do código
+      const now = new Date();
+      const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      const allCards = columns.flatMap(col => 
+        (col.cards || []).map(card => ({ ...card, colTitle: col.title }))
+      );
+      
+      // Tarefas prestes a vencer
+      const upcomingCards = allCards.filter(card => {
+        if (card.completed) return false;
+        if (!card.due) return false;
+        const dueDate = new Date(card.due);
+        return dueDate > now && dueDate <= next24h;
+      });
+      
+      // Tarefas atrasadas
+      const overdueCards = allCards.filter(card => {
+        if (card.completed) return false;
+        if (!card.due) return false;
+        const dueDate = new Date(card.due);
+        return dueDate < now;
+      });
+      
+      const today = new Date().toISOString().slice(0, 10);
+      
+      upcomingCards.forEach(card => {
+        const dueDate = new Date(card.due);
+        const hoursLeft = Math.round((dueDate - now) / (1000 * 60 * 60));
+        const notifKey = `upcoming_${card.id}_${today}`;
+        const lastNotif = localStorage.getItem(notifKey);
+        
+        if (!lastNotif) {
+          toArr(card.members).forEach(mid => {
+            if (mid !== currentUser.id) {
+              onNotify(mid, `⚠️ "${card.title}" vence em ${hoursLeft}h (${fmtDateTime(card.due)})`);
+            }
+          });
+          localStorage.setItem(notifKey, today);
+        }
+      });
+      
+      overdueCards.forEach(card => {
+        const dueDate = new Date(card.due);
+        const daysLate = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+        const notifKey = `overdue_${card.id}_${today}`;
+        const lastNotif = localStorage.getItem(notifKey);
+        
+        if (!lastNotif) {
+          toArr(card.members).forEach(mid => {
+            if (mid !== currentUser.id) {
+              onNotify(mid, `🔴 "${card.title}" está ATRASADA há ${daysLate} dia(s) (vencia em ${fmtDateTime(card.due)})`);
+            }
+          });
+          localStorage.setItem(notifKey, today);
+        }
+      });
     };
     
     checkUpcomingAndOverdueTasks();
     const interval = setInterval(checkUpcomingAndOverdueTasks, 30 * 60 * 1000);
     
     return () => clearInterval(interval);
-  }, [currentUser, columns, members, onNotify]); // ← agora onNotify existe!
+  }, [currentUser, columns, members, onNotify]);
 
   const updateMembers   = v => set(ref(db, 'members'), v);
   const updateColumns   = v => set(ref(db, 'columns'), v);
@@ -3627,13 +3765,13 @@ export default function App() {
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
-  { id: "board",     label: "Board",    icon: "📋" },
-  { id: "users",     label: "Usuários", icon: "👥" },
-  { id: "analytics", label: "Análise",  icon: "📊" },
-  { id: "social",    label: "Social",   icon: "📱" },
-  { id: "calendar",  label: "Agenda",   icon: "📅" },
-  ...(isFelipe ? [{ id: "campanhas", label: "Campanhas", icon: "📣" }] : []),
-];
+    { id: "board",     label: "Board",    icon: "📋" },
+    { id: "users",     label: "Usuários", icon: "👥" },
+    { id: "analytics", label: "Análise",  icon: "📊" },
+    { id: "social",    label: "Social",   icon: "📱" },
+    { id: "calendar",  label: "Agenda",   icon: "📅" },
+    ...(isFelipe ? [{ id: "campanhas", label: "Campanhas", icon: "📣" }] : []),
+  ];
 
   if (!currentUser) {
     return (
@@ -3700,12 +3838,12 @@ export default function App() {
           {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
           {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} presence={presence} />}
           {tab === "campanhas" && isFelipe && (
-  <CampanhasTab
-    campanhas={campanhas}
-    updateCampanhas={updateCampanhas}
-    socialData={socialData}
-  />
-)}
+            <CampanhasTab
+              campanhas={campanhas}
+              updateCampanhas={updateCampanhas}
+              socialData={socialData}
+            />
+          )}
         </div>
 
         <nav className="bottom-nav">
