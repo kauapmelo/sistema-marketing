@@ -834,7 +834,10 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────── */
-function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, isFirst, isLast, presence }) {
+// FIX: isFirst/isLast are now based on the card's real index in the full column array,
+// not its index among filtered/visible cards. This ensures the buttons work correctly
+// in both "Meus cards" mode and with search filters active.
+function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMoveUp, onMoveDown, realIndex, totalRealCards, presence }) {
   const [drag, setDrag] = useState(false);
   const [completing, setCompleting] = useState(false);
   const cardMembers = members.filter(m => toArr(card.members).includes(m.id));
@@ -845,6 +848,10 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   const isCompleted = !!card.completed;
   const dueDate = card.due ? card.due.slice(0, 10) : null;
   const isOverdue = dueDate && dueDate < today && !isCompleted;
+
+  // Use real index for first/last detection — works correctly with any filter
+  const isFirst = realIndex === 0;
+  const isLast = realIndex === totalRealCards - 1;
 
   const handleComplete = (e) => {
     e.stopPropagation();
@@ -870,10 +877,26 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-          <button title="Mover para cima" onClick={e => { e.stopPropagation(); onMoveUp(card.id, colId); }} disabled={isFirst}
-            style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", color: isFirst ? T.textMuted + "44" : T.textMuted, fontSize: 11, padding: "0 1px", lineHeight: 1 }}>▲</button>
-          <button title="Mover para baixo" onClick={e => { e.stopPropagation(); onMoveDown(card.id, colId); }} disabled={isLast}
-            style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", color: isLast ? T.textMuted + "44" : T.textMuted, fontSize: 11, padding: "0 1px", lineHeight: 1 }}>▼</button>
+          <button
+            title="Mover para cima"
+            onClick={e => { e.stopPropagation(); onMoveUp(card.id, colId); }}
+            disabled={isFirst}
+            style={{
+              background: "none", border: "none",
+              cursor: isFirst ? "default" : "pointer",
+              color: isFirst ? T.textMuted + "44" : T.textMuted,
+              fontSize: 11, padding: "0 1px", lineHeight: 1
+            }}>▲</button>
+          <button
+            title="Mover para baixo"
+            onClick={e => { e.stopPropagation(); onMoveDown(card.id, colId); }}
+            disabled={isLast}
+            style={{
+              background: "none", border: "none",
+              cursor: isLast ? "default" : "pointer",
+              color: isLast ? T.textMuted + "44" : T.textMuted,
+              fontSize: 11, padding: "0 1px", lineHeight: 1
+            }}>▼</button>
           <button title={isCompleted ? "Já concluído" : "Marcar como concluído"} onClick={handleComplete} disabled={completing || isCompleted}
             style={{ background: isCompleted ? T.green + "33" : completing ? T.green + "40" : T.green + "18", border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`, borderRadius: 6, cursor: isCompleted ? "default" : "pointer", color: T.green, fontSize: 12, padding: "2px 5px", fontFamily: "inherit", fontWeight: 700, lineHeight: 1.4, transition: "background .15s" }}>✅</button>
           <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
@@ -977,11 +1000,9 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
 
-  // ── FIX: Column drag state stored in refs to avoid stale closures ──
   const draggingColIdRef = useRef(null);
   const [draggingColId, setDraggingColId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
-  // Separate drag type tracking: "col" or "card"
   const dragTypeRef = useRef(null);
 
   const addToast = useCallback((title, points) => {
@@ -1018,7 +1039,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
 
   const totalVisible = sortedCols.reduce((a, col) => a + col.cards.filter(filterCard).length, 0);
 
-  // ── FIX: Column drag handlers — use columnsRef to avoid stale closure ──
   const columnsRef = useRef(columns);
   useEffect(() => { columnsRef.current = columns; }, [columns]);
 
@@ -1080,6 +1100,9 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     dragTypeRef.current = null;
   }, []);
 
+  // FIX: Move up/down operate on the full (unfiltered) cards array.
+  // The real index is passed from the render loop below, so these functions
+  // just swap by that known index — no find() needed against a filtered list.
   const handleMoveUp = useCallback((cardId, colId) => {
     const newCols = columnsRef.current.map(col => {
       if (col.id !== colId) return col;
@@ -1117,9 +1140,7 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
     addToast(card.title, card.points || getPriority(card.priority).points);
   }, [updateColumns, members, currentUser, onNotify, addToast]);
 
-  // ── FIX: Card drop — only fires when dragType is "card" ──
   const handleCardDrop = useCallback((e, toColId) => {
-    // If this is a column drag, ignore
     const dtype = e.dataTransfer.getData("dragType");
     if (dtype === "col") return;
     const cardData = e.dataTransfer.getData("card");
@@ -1226,7 +1247,9 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
         )}
         {visibleCols.map(col => {
           const sortBy = colSortMap[col.id] || "manual";
+          // sortedCards = the full ordered array for this column (respects manual/sort order)
           const sortedCards = getSortedCards(col);
+          // visibleCards = only those that pass the current filter (for display)
           const visibleCards = sortedCards.filter(filterCard);
           const colPts = col.cards.reduce((a, c) => a + (c.points || 0), 0);
           const isDragOver = dragOverColId === col.id;
@@ -1236,8 +1259,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
             <div
               key={col.id}
               className="kanban-col"
-              // ── FIX: The column itself is draggable via the handle only ──
-              // We don't put draggable on the outer div to avoid conflicts with card drops
               onDragOver={e => {
                 e.preventDefault();
                 if (dragTypeRef.current === "col") {
@@ -1263,7 +1284,6 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
               }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  {/* ── FIX: Drag handle — only this element triggers column drag ── */}
                   <div
                     className="col-drag-handle"
                     title="Arrastar coluna"
@@ -1292,14 +1312,30 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
                   <option value="priority">Prioridade</option>
                 </select>
               </div>
-              {visibleCards.map((card, idx) => (
-                <KanbanCard key={card.id} card={card} colId={col.id} members={members}
-                  onOpen={(c, cid) => setModal({ card: c, colId: cid })}
-                  onDelete={handleDelete} onComplete={handleComplete}
-                  onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
-                  isFirst={idx === 0} isLast={idx === visibleCards.length - 1}
-                  presence={presence} />
-              ))}
+
+              {/* FIX: Pass realIndex (index in the full sortedCards array) and
+                  totalRealCards (total unfiltered count). KanbanCard uses these
+                  for isFirst/isLast so the ▲▼ buttons work correctly under any filter. */}
+              {visibleCards.map((card) => {
+                const realIndex = sortedCards.findIndex(c => c.id === card.id);
+                return (
+                  <KanbanCard
+                    key={card.id}
+                    card={card}
+                    colId={col.id}
+                    members={members}
+                    onOpen={(c, cid) => setModal({ card: c, colId: cid })}
+                    onDelete={handleDelete}
+                    onComplete={handleComplete}
+                    onMoveUp={handleMoveUp}
+                    onMoveDown={handleMoveDown}
+                    realIndex={realIndex}
+                    totalRealCards={sortedCards.length}
+                    presence={presence}
+                  />
+                );
+              })}
+
               {visibleCards.length === 0 && <div style={{ textAlign: "center", padding: "12px 0 8px", color: T.textMuted, fontSize: 12 }}>Arraste um card aqui</div>}
               <div style={{ marginTop: 4 }}>
                 <QuickAdd colId={col.id} taskTypes={taskTypes} currentUser={currentUser} onAdd={handleQuickAdd} />
@@ -2246,40 +2282,19 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
         </div>
       )}
 
-      {/* ── FIX: Calendar grid — overflowX scroll wrapper with enforced minWidth ── */}
       <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ ...s.card({ overflow: "hidden" }), minWidth: 560 }}>
-          {/* Day name headers */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-            background: T.bg2,
-            borderBottom: `1px solid ${T.border}`
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
             {DAY_NAMES.map(d => (
-              <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: T.textMuted }}>
-                {d}
-              </div>
+              <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: T.textMuted }}>{d}</div>
             ))}
           </div>
 
-          {/* Day cells grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
-            {/* Empty cells before first day */}
             {Array.from({ length: first }).map((_, i) => (
-              <div
-                key={`e${i}`}
-                style={{
-                  height: 72,
-                  overflow: "hidden",
-                  borderBottom: `1px solid ${T.border}`,
-                  borderRight: `1px solid ${T.border}`,
-                  background: T.bg1
-                }}
-              />
+              <div key={`e${i}`} style={{ height: 72, overflow: "hidden", borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`, background: T.bg1 }} />
             ))}
 
-            {/* Day cells */}
             {Array.from({ length: days }).map((_, i) => {
               const day = i + 1;
               const evs = eventsFor(day);
@@ -2296,102 +2311,38 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
                   onDrop={e => handleDayDrop(e, day)}
                   onDragLeave={() => setDragOverDay(null)}
                   style={{
-                    // ── FIX: fixed height, not minHeight — inline style wins over CSS ──
-                    height: 72,
-                    overflow: "hidden",
-                    boxSizing: "border-box",
-                    borderBottom: `1px solid ${T.border}`,
-                    borderRight: `1px solid ${T.border}`,
-                    padding: "5px 3px",
-                    cursor: "pointer",
-                    background: isDragOver
-                      ? T.accent + "22"
-                      : isSel
-                        ? T.accentDim
-                        : isToday(day)
-                          ? T.blueDim
-                          : T.bg2,
-                    outline: isDragOver ? `2px solid ${T.accent}` : "none",
-                    outlineOffset: "-2px",
-                    transition: "background .15s"
+                    height: 72, overflow: "hidden", boxSizing: "border-box",
+                    borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.border}`,
+                    padding: "5px 3px", cursor: "pointer",
+                    background: isDragOver ? T.accent + "22" : isSel ? T.accentDim : isToday(day) ? T.blueDim : T.bg2,
+                    outline: isDragOver ? `2px solid ${T.accent}` : "none", outlineOffset: "-2px", transition: "background .15s"
                   }}
                 >
-                  {/* Day number */}
-                  <div style={{
-                    width: 20, height: 20, borderRadius: "50%",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: isToday(day) ? T.blue : "transparent",
-                    color: isToday(day) ? "#fff" : T.text,
-                    fontWeight: isToday(day) ? 700 : 500,
-                    fontSize: 11, marginBottom: 2, flexShrink: 0
-                  }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.blue : "transparent", color: isToday(day) ? "#fff" : T.text, fontWeight: isToday(day) ? 700 : 500, fontSize: 11, marginBottom: 2, flexShrink: 0 }}>
                     {day}
                   </div>
-
-                  {/* Events (up to 2 total between events + cards) */}
                   {evs.slice(0, 2).map(ev => {
-                    const mb = members.find(m => m.id === ev.memberId);
                     const t = fmtEventTime(ev.date);
                     return (
-                      <div
-                        key={ev.id}
-                        draggable
-                        onDragStart={e => handleEventDragStart(e, ev)}
-                        onDragEnd={handleDragEnd}
-                        onClick={e => e.stopPropagation()}
-                        style={{
-                          background: memberColor(ev.memberId) + "33",
-                          borderLeft: `2px solid ${memberColor(ev.memberId)}`,
-                          borderRadius: "0 3px 3px 0",
-                          padding: "1px 3px",
-                          marginBottom: 2,
-                          cursor: "grab",
-                          opacity: draggingEvent?.id === ev.id ? 0.4 : 1
-                        }}
-                      >
-                        <div style={{
-                          fontSize: 9, fontWeight: 700,
-                          color: memberColor(ev.memberId),
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          lineHeight: 1.3
-                        }}>
+                      <div key={ev.id} draggable onDragStart={e => handleEventDragStart(e, ev)} onDragEnd={handleDragEnd} onClick={e => e.stopPropagation()}
+                        style={{ background: memberColor(ev.memberId) + "33", borderLeft: `2px solid ${memberColor(ev.memberId)}`, borderRadius: "0 3px 3px 0", padding: "1px 3px", marginBottom: 2, cursor: "grab", opacity: draggingEvent?.id === ev.id ? 0.4 : 1 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: memberColor(ev.memberId), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                           {t ? `${t} ` : ""}{ev.title}
                         </div>
                       </div>
                     );
                   })}
-
-                  {/* Due cards (fill remaining slots up to 2 total) */}
                   {dueCards.slice(0, Math.max(0, 2 - evs.length)).map(c => {
                     const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0, 5) : null;
                     return (
-                      <div
-                        key={c.id}
-                        style={{
-                          background: T.amber + "22",
-                          borderLeft: `2px solid ${T.amber}`,
-                          borderRadius: "0 3px 3px 0",
-                          padding: "1px 3px",
-                          marginBottom: 2
-                        }}
-                      >
-                        <div style={{
-                          fontSize: 9, fontWeight: 700, color: T.amber,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          lineHeight: 1.3
-                        }}>
+                      <div key={c.id} style={{ background: T.amber + "22", borderLeft: `2px solid ${T.amber}`, borderRadius: "0 3px 3px 0", padding: "1px 3px", marginBottom: 2 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: T.amber, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                           {t ? `${t} ` : ""}⭐ {c.title}
                         </div>
                       </div>
                     );
                   })}
-
-                  {/* Overflow count */}
-                  {totalItems > 2 && (
-                    <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, lineHeight: 1 }}>
-                      +{totalItems - 2}
-                    </div>
-                  )}
+                  {totalItems > 2 && <div style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, lineHeight: 1 }}>+{totalItems - 2}</div>}
                 </div>
               );
             })}
@@ -2399,15 +2350,12 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
         </div>
       </div>
 
-      {/* Detail panel for selected day */}
       {sel && (
         <div style={s.card({ marginTop: 14, padding: 14 })}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>Dia {sel} de {MONTHS[month]}</h3>
             <button onClick={() => setAddModal(datePfx(sel))} style={s.btn(T.accent, { fontSize: 12, padding: "6px 12px" })}>+ Evento</button>
           </div>
-
-          {/* Events */}
           {eventsFor(sel).map(ev => {
             const mb = members.find(m => m.id === ev.memberId);
             const t = fmtEventTime(ev.date);
@@ -2434,8 +2382,6 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
               </div>
             );
           })}
-
-          {/* Due cards for selected day */}
           {allCards.filter(c => c.due && c.due.startsWith(datePfx(sel))).map(c => {
             const cardMs = members.filter(m => toArr(c.members).includes(m.id));
             const t = c.due?.includes("T") ? c.due.split("T")[1]?.slice(0,5) : null;
@@ -2464,11 +2410,7 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
                       </>
                     ) : (
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {cardMs.slice(0, 3).map((m, i) => (
-                          <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}>
-                            <Avatar member={m} size={28} showOnline presence={presence} />
-                          </div>
-                        ))}
+                        {cardMs.slice(0, 3).map((m, i) => <div key={m.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar member={m} size={28} showOnline presence={presence} /></div>)}
                         {cardMs.length > 3 && <span style={{ fontSize: 10, color: T.textMuted, marginLeft: 4 }}>+{cardMs.length - 3}</span>}
                       </div>
                     )}
@@ -2477,14 +2419,12 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
               </div>
             );
           })}
-
           {eventsFor(sel).length === 0 && allCards.filter(c => c.due && c.due.startsWith(datePfx(sel))).length === 0 && (
             <p style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "14px 0" }}>Nenhum evento neste dia</p>
           )}
         </div>
       )}
 
-      {/* Add event modal */}
       {addModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={e => e.target === e.currentTarget && setAddModal(null)}>
           <div style={s.card({ padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 24px 64px #000000cc" })}>
