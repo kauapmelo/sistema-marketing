@@ -1148,7 +1148,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
 }
 
 /* ─── BOARD TAB ──────────────────────────────────────────── */
-function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode, presence }) {
+function BoardTab({ columns, updateColumns, members, currentUser, onNotify, taskTypes, updateTaskTypes, myCardsMode, setMyCardsMode, presence, folders, updateFolders }) {
   const [modal, setModal] = useState(null);
   const [colModal, setColModal] = useState(null);
   const [typesModal, setTypesModal] = useState(false);
@@ -1156,7 +1156,10 @@ function BoardTab({ columns, updateColumns, members, currentUser, onNotify, task
   const [filterMember, setFilterMember] = useState("all");
   const [toasts, setToasts] = useState([]);
   const [colSortMap, setColSortMap] = useState({});
-  const [folders, setFolders] = useState({});
+const setFolders = (updater) => {
+  const next = typeof updater === "function" ? updater(folders) : updater;
+  updateFolders(next);
+};
   const [folderModal, setFolderModal] = useState(null);
   const [dragOverFolder, setDragOverFolder] = useState(null);
 
@@ -3450,6 +3453,7 @@ export default function App() {
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
   const [campanhas, setCampanhas] = useState([]);
+ 
 
   const presence = usePresence();
 
@@ -3485,6 +3489,7 @@ export default function App() {
   onValue(ref(db, 'events'),    snap => setEvents(toArr(snap.val()))),
   onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {})),
   onValue(ref(db, 'taskTypes'), snap => { if (snap.val()) setTaskTypes(toArr(snap.val())); }),
+  onValue(ref(db, 'folders'),   snap => setFolders(snap.val() || {})),
 ];
 return () => unsubs.forEach(u => u());
   }, []);
@@ -3495,6 +3500,7 @@ return () => unsubs.forEach(u => u());
   const updateSocial    = v => set(ref(db, 'social'), v);
   const updateTaskTypes = v => set(ref(db, 'taskTypes'), v);
   const updateCampanhas = v => set(ref(db, 'campanhas'), v);
+  const updateFolders   = v => set(ref(db, 'folders'), v); 
 
   const onLogin    = member => setCurrentUser(member);
   const isFelipe = currentUser?.name?.toLowerCase().includes("felipe");
@@ -3581,7 +3587,7 @@ return () => unsubs.forEach(u => u());
         </div>
 
         <div className="page-content" style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 12px 48px" }}>
-          {tab === "board"     && <BoardTab     columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} presence={presence} />}
+          {tab === "board" && <BoardTab columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} presence={presence} folders={folders} updateFolders={updateFolders} />}
           {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} presence={presence} />}
           {tab === "analytics" && <AnalyticsTab columns={columns} members={members} presence={presence} />}
           {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
