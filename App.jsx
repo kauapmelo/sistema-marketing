@@ -3453,6 +3453,7 @@ export default function App() {
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
   const [campanhas, setCampanhas] = useState([]);
+  const [folders, setFolders] = useState({});
  
 
   const presence = usePresence();
