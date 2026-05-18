@@ -1208,21 +1208,21 @@ const setFolders = (updater) => {
   };
 
   const addCardToFolder = (colId, folderId, cardId) => {
-    setFolders(f => {
-      const colFolders = (f[colId] || []).map(folder => ({
-        ...folder,
-        cardIds: folder.cardIds.filter(id => id !== cardId),
-      }));
-      return {
-        ...f,
-        [colId]: colFolders.map(folder =>
-          folder.id === folderId
-            ? { ...folder, cardIds: [...folder.cardIds, cardId] }
-            : folder
-        ),
-      };
-    });
-  };
+  setFolders(f => {
+    const colFolders = (f[colId] || []).map(folder => ({
+      ...folder,
+      cardIds: (folder.cardIds || []).filter(id => id !== cardId),
+    }));
+    return {
+      ...f,
+      [colId]: colFolders.map(folder =>
+        folder.id === folderId
+          ? { ...folder, cardIds: [...(folder.cardIds || []), cardId] }
+          : folder
+      ),
+    };
+  });
+};
 
   const removeCardFromFolder = (colId, cardId) => {
     setFolders(f => ({
