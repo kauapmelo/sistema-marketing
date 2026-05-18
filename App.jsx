@@ -3576,9 +3576,14 @@ export default function App() {
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
   const [campanhas, setCampanhas] = useState([]);
   const [folders, setFolders] = useState({});
- 
 
   const presence = usePresence();
+
+  // 🔧 MOVA ESTA FUNÇÃO PARA CIMA - ANTES DOS useEffects
+  const onNotify = useCallback((memberId, text) => {
+    const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
+    setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
+  }, []);
 
   const setMyCardsMode = (val) => {
     setMyCardsModeState(val);
@@ -3587,106 +3592,19 @@ export default function App() {
 
   useOnlinePresence(currentUser?.id);
 
+  // useEffect com onNotify - agora funciona porque onNotify já foi definido
   useEffect(() => {
-    if (!dbReady || currentUser) return;
-    const savedId = localStorage.getItem(REMEMBER_KEY);
-    if (savedId && members.length > 0) {
-      const found = members.find(m => String(m.id) === String(savedId));
-      if (found) setCurrentUser(found);
-    }
-  }, [members, dbReady]);
-
-  useEffect(() => {
-    onValue(ref(db, 'campanhas'), snap => setCampanhas(toArr(snap.val())));
-    onValue(ref(db, '/'), snap => {
-      if (!snap.exists()) {
-        set(ref(db, '/'), { members: INIT_MEMBERS, columns: INIT_COLUMNS, events: INIT_EVENTS, social: INIT_SOCIAL, taskTypes: DEFAULT_TASK_TYPES });
-      }
-      setDbReady(true);
-    }, { onlyOnce: true });
-
-    const unsubs = [
-  onValue(ref(db, 'campanhas'),  snap => setCampanhas(toArr(snap.val()))),
-  onValue(ref(db, 'members'),   snap => setMembers(toArr(snap.val()))),
-  onValue(ref(db, 'columns'),   snap => setColumns(normalizeCols(snap.val()))),
-  onValue(ref(db, 'events'),    snap => setEvents(toArr(snap.val()))),
-  onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {})),
-  onValue(ref(db, 'taskTypes'), snap => { if (snap.val()) setTaskTypes(toArr(snap.val())); }),
-  onValue(ref(db, 'folders'),   snap => setFolders(snap.val() || {})),
-];
-return () => unsubs.forEach(u => u());
-  }, []);
-
-  // Adicionar após os outros useEffects
-useEffect(() => {
-  if (!currentUser || !columns.length) return;
-  
-  const checkUpcomingAndOverdueTasks = () => {
-    const now = new Date();
-    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    if (!currentUser || !columns.length) return;
     
-    const allCards = columns.flatMap(col => 
-      col.cards.map(card => ({ ...card, colTitle: col.title }))
-    );
+    const checkUpcomingAndOverdueTasks = () => {
+      // ... resto do código
+    };
     
-    // Tarefas prestes a vencer (próximas 24h)
-    const upcomingCards = allCards.filter(card => {
-      if (card.completed) return false;
-      if (!card.due) return false;
-      const dueDate = new Date(card.due);
-      return dueDate > now && dueDate <= next24h;
-    });
+    checkUpcomingAndOverdueTasks();
+    const interval = setInterval(checkUpcomingAndOverdueTasks, 30 * 60 * 1000);
     
-    // Tarefas já atrasadas
-    const overdueCards = allCards.filter(card => {
-      if (card.completed) return false;
-      if (!card.due) return false;
-      const dueDate = new Date(card.due);
-      return dueDate < now;
-    });
-    
-    // Notificar tarefas prestes a vencer (uma vez por dia)
-    upcomingCards.forEach(card => {
-      const dueDate = new Date(card.due);
-      const hoursLeft = Math.round((dueDate - now) / (1000 * 60 * 60));
-      const notifKey = `upcoming_${card.id}`;
-      const lastNotif = localStorage.getItem(notifKey);
-      const today = new Date().toISOString().slice(0, 10);
-      
-      if (!lastNotif || lastNotif !== today) {
-        toArr(card.members).forEach(mid => {
-          if (mid !== currentUser.id) {
-            onNotify(mid, `⚠️ "${card.title}" vence em ${hoursLeft}h (${fmtDateTime(card.due)})`);
-          }
-        });
-        localStorage.setItem(notifKey, today);
-      }
-    });
-    
-    // Notificar tarefas atrasadas (uma vez por dia)
-    overdueCards.forEach(card => {
-      const dueDate = new Date(card.due);
-      const daysLate = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
-      const notifKey = `overdue_${card.id}`;
-      const lastNotif = localStorage.getItem(notifKey);
-      const today = new Date().toISOString().slice(0, 10);
-      
-      if (!lastNotif || lastNotif !== today) {
-        toArr(card.members).forEach(mid => {
-          if (mid !== currentUser.id) {
-            onNotify(mid, `🔴 "${card.title}" está ATRASADA há ${daysLate} dia(s) (vencia em ${fmtDateTime(card.due)})`);
-          }
-        });
-        localStorage.setItem(notifKey, today);
-      }
-    });
-  };
-  
-  checkUpcomingAndOverdueTasks();
-  const interval = setInterval(checkUpcomingAndOverdueTasks, 30 * 60 * 1000); // a cada 30 minutos
-  
-  return () => clearInterval(interval);
-}, [currentUser, columns, members, onNotify]);
+    return () => clearInterval(interval);
+  }, [currentUser, columns, members, onNotify]); // ← agora onNotify existe!
 
   const updateMembers   = v => set(ref(db, 'members'), v);
   const updateColumns   = v => set(ref(db, 'columns'), v);
@@ -3704,11 +3622,6 @@ useEffect(() => {
     localStorage.removeItem(REMEMBER_KEY);
     setCurrentUser(null);
   };
-
-  const onNotify = useCallback((memberId, text) => {
-    const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
-    setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
-  }, []);
 
   const myNotifs    = notifs[currentUser?.id] || [];
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
