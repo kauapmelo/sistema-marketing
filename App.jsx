@@ -1610,21 +1610,43 @@ const setFolders = (updater) => {
                   onRemoveCard={removeCardFromFolder}
                   onDragOverFolder={setDragOverFolder}
                   onDropFolder={(e, colId, folderId) => {
-                    const cardData = e.dataTransfer.getData("card");
-                    if (!cardData) return;
-                    try {
-                      const { card, fromCol } = JSON.parse(cardData);
-                      if (fromCol !== colId) {
-                        updateColumns(columnsRef.current.map(c => {
-                          if (c.id === fromCol) return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
-                          if (c.id === colId) return { ...c, cards: [...c.cards, card] };
-                          return c;
-                        }));
-                      }
-                      addCardToFolder(colId, folderId, card.id);
-                      setDragOverFolder(null);
-                    } catch (err) { console.error(err); }
-                  }}
+  console.log("🔥 DROP NA PASTA!", { colId, folderId }); // <- ADICIONE PARA DEBUG
+  e.preventDefault();
+  e.stopPropagation(); // <- ADICIONE ISSO!
+  
+  const cardData = e.dataTransfer.getData("card");
+  if (!cardData) {
+    console.log("❌ Sem cardData");
+    return;
+  }
+  
+  try {
+    const { card, fromCol } = JSON.parse(cardData);
+    console.log("📦 Card:", card.title, "From:", fromCol, "To:", colId);
+    
+    // Se o card veio de outra coluna, move ele primeiro
+    if (fromCol !== colId) {
+      updateColumns(columnsRef.current.map(c => {
+        if (c.id === fromCol) {
+          return { ...c, cards: c.cards.filter(x => x.id !== card.id) };
+        }
+        if (c.id === colId) {
+          return { ...c, cards: [...c.cards, card] };
+        }
+        return c;
+      }));
+    }
+    
+    // Adiciona o card à pasta
+    addCardToFolder(colId, folderId, card.id);
+    setDragOverFolder(null);
+    
+    console.log("✅ Card adicionado à pasta!");
+    
+  } catch (err) { 
+    console.error("❌ Drop error:", err); 
+  }
+}}
                   dragOverFolder={dragOverFolder}
                   presence={presence}
                 />
