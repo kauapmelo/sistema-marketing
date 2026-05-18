@@ -2459,6 +2459,660 @@ function CalendarTab({ members, columns, events, updateEvents, taskTypes, presen
   );
 }
 
+const fmtMoney = n => {
+  const v = Number(n) || 0;
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
+const MONTHS_PT_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MONTHS_PT_SHORT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+// ── PALETA (reutiliza T do projeto, mas declarada aqui para independência) ─────
+const CT = {
+  bg0: "#0a0a0f", bg1: "#111118", bg2: "#18181f", bg3: "#22222c",
+  bg4: "#2a2a36", border: "#2e2e3a", borderHover: "#44445a",
+  text: "#f0f0f5", textSub: "#8888aa", textMuted: "#55556a",
+  accent: "#7c6af7", accentHover: "#9b8fff", accentDim: "#7c6af722",
+  green: "#22c55e", greenDim: "#22c55e22",
+  amber: "#f59e0b", amberDim: "#f59e0b22",
+  red: "#ef4444", redDim: "#ef444422",
+  blue: "#3b82f6", blueDim: "#3b82f622",
+  pink: "#ec4899", pinkDim: "#ec489922",
+  teal: "#14b8a6", tealDim: "#14b8a622",
+  gold: "#fbbf24",
+};
+
+// ── ESTILOS BASE ───────────────────────────────────────────────────────────────
+const cs = {
+  card: (extra = {}) => ({ background: CT.bg2, borderRadius: 12, border: `1px solid ${CT.border}`, ...extra }),
+  btn: (bg = CT.accent, extra = {}) => ({
+    background: bg, color: "#fff", border: "none", borderRadius: 8,
+    padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13,
+    fontFamily: "inherit", transition: "opacity .15s", ...extra,
+  }),
+  input: (extra = {}) => ({
+    background: CT.bg3, border: `1px solid ${CT.border}`, borderRadius: 8,
+    color: CT.text, padding: "8px 12px", fontSize: 14, width: "100%",
+    boxSizing: "border-box", fontFamily: "inherit", outline: "none",
+    colorScheme: "dark", ...extra,
+  }),
+  select: (extra = {}) => ({
+    background: CT.bg3, border: `1px solid ${CT.border}`, borderRadius: 8,
+    color: CT.text, padding: "8px 32px 8px 12px", fontSize: 14, width: "100%",
+    boxSizing: "border-box", fontFamily: "inherit", outline: "none", colorScheme: "dark",
+    WebkitAppearance: "none", appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2355556a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", cursor: "pointer", ...extra,
+  }),
+  label: { fontSize: 11, fontWeight: 700, color: CT.textMuted, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 },
+  badge: (color) => ({ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: color + "22", color, letterSpacing: .5 }),
+};
+
+// ─── ROI BADGE ─────────────────────────────────────────────────────────────────
+function ROIBadge({ investido, retorno }) {
+  const inv = Number(investido) || 0;
+  const ret = Number(retorno) || 0;
+  if (inv === 0) return null;
+  const roi = ((ret - inv) / inv) * 100;
+  const color = roi >= 100 ? CT.green : roi >= 0 ? CT.amber : CT.red;
+  const icon = roi >= 100 ? "🚀" : roi >= 0 ? "📈" : "📉";
+  return (
+    <span style={{ ...cs.badge(color), fontSize: 11, padding: "3px 10px" }}>
+      {icon} ROI: {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
+    </span>
+  );
+}
+
+// ─── MINI PROGRESS BAR ─────────────────────────────────────────────────────────
+function MiniProgress({ value, max, color }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div style={{ background: color + "22", borderRadius: 4, height: 5, overflow: "hidden", flex: 1 }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4, transition: "width .5s" }} />
+    </div>
+  );
+}
+
+// ─── MODAL NOVA/EDITAR CAMPANHA ────────────────────────────────────────────────
+function CampanhaModal({ campanha, onSave, onClose }) {
+  const isNew = !campanha?.id;
+  const [form, setForm] = React.useState(() => campanha ? { ...campanha, beneficios: toArr(campanha.beneficios) } : {
+    nome: "", descricao: "", plataforma: "Instagram", mesInicio: "", mesFim: "",
+    investido: "", retornoEsperado: "", status: "ativa",
+    beneficios: [], tags: "",
+  });
+  const [novoBenef, setNovoBenef] = React.useState({ descricao: "", valor: "" });
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const addBeneficio = () => {
+    if (!novoBenef.descricao.trim()) return;
+    const b = { id: uid(), descricao: novoBenef.descricao.trim(), valor: Number(novoBenef.valor) || 0 };
+    setF("beneficios", [...form.beneficios, b]);
+    setNovoBenef({ descricao: "", valor: "" });
+  };
+
+  const removeBeneficio = id => setF("beneficios", form.beneficios.filter(b => b.id !== id));
+  const updateBenef = (id, field, val) => setF("beneficios", form.beneficios.map(b => b.id === id ? { ...b, [field]: field === "valor" ? Number(val) || 0 : val } : b));
+
+  const totalBeneficios = form.beneficios.reduce((a, b) => a + (Number(b.valor) || 0), 0);
+
+  const handleSave = () => {
+    if (!form.nome.trim()) return;
+    onSave({ ...form, id: campanha?.id || uid(), investido: Number(form.investido) || 0, retornoEsperado: Number(form.retornoEsperado) || 0 });
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "16px" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "100%", maxWidth: 640, ...cs.card({ padding: 0, overflow: "hidden", marginBottom: 24, boxShadow: "0 24px 64px #000000cc" }) }}>
+        {/* Header */}
+        <div style={{ padding: "18px 24px 14px", borderBottom: `1px solid ${CT.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: CT.bg1 }}>
+          <h3 style={{ margin: 0, fontWeight: 900, color: CT.text, fontSize: 17 }}>{isNew ? "Nova Campanha" : "Editar Campanha"}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: CT.textMuted, fontSize: 24 }}>×</button>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Nome e Status */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
+            <div>
+              <label style={cs.label}>Nome da Campanha</label>
+              <input value={form.nome} onChange={e => setF("nome", e.target.value)} placeholder="Ex: Campanha BPC Janeiro" style={cs.input()} autoFocus />
+            </div>
+            <div>
+              <label style={cs.label}>Status</label>
+              <select value={form.status} onChange={e => setF("status", e.target.value)} style={cs.select({ width: 130 })}>
+                <option value="ativa">🟢 Ativa</option>
+                <option value="pausada">🟡 Pausada</option>
+                <option value="encerrada">🔴 Encerrada</option>
+                <option value="planejada">🔵 Planejada</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label style={cs.label}>Descrição</label>
+            <textarea value={form.descricao} onChange={e => setF("descricao", e.target.value)} rows={2} placeholder="Objetivo e contexto da campanha..." style={{ ...cs.input({ resize: "vertical", lineHeight: 1.5 }), WebkitAppearance: "none" }} />
+          </div>
+
+          {/* Plataforma e Período */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={cs.label}>Plataforma</label>
+              <select value={form.plataforma} onChange={e => setF("plataforma", e.target.value)} style={cs.select()}>
+                {["Instagram","TikTok","YouTube","Facebook","Google Ads","Multi-plataforma","Outro"].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={cs.label}>Mês Início</label>
+              <input type="month" value={form.mesInicio} onChange={e => setF("mesInicio", e.target.value)} style={{ ...cs.input(), colorScheme: "dark" }} />
+            </div>
+            <div>
+              <label style={cs.label}>Mês Fim</label>
+              <input type="month" value={form.mesFim} onChange={e => setF("mesFim", e.target.value)} style={{ ...cs.input(), colorScheme: "dark" }} />
+            </div>
+          </div>
+
+          {/* Financeiro */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={cs.label}>💰 Valor Investido (R$)</label>
+              <input type="number" value={form.investido} onChange={e => setF("investido", e.target.value)} placeholder="0,00" style={cs.input()} min="0" step="0.01" />
+            </div>
+            <div>
+              <label style={cs.label}>🎯 Retorno Esperado (R$)</label>
+              <input type="number" value={form.retornoEsperado} onChange={e => setF("retornoEsperado", e.target.value)} placeholder="0,00" style={cs.input()} min="0" step="0.01" />
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label style={cs.label}>Tags (separadas por vírgula)</label>
+            <input value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder="Ex: produto-x, conversão, orgânico" style={cs.input()} />
+          </div>
+
+          {/* Benefícios */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <label style={{ ...cs.label, marginBottom: 0 }}>✨ Benefícios Fechados</label>
+              {totalBeneficios > 0 && (
+                <span style={{ fontSize: 12, fontWeight: 800, color: CT.green }}>Total: {fmtMoney(totalBeneficios)}</span>
+              )}
+            </div>
+
+            {form.beneficios.length > 0 && (
+              <div style={{ background: CT.bg3, borderRadius: 10, padding: "8px 12px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                {form.beneficios.map(b => (
+                  <div key={b.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input value={b.descricao} onChange={e => updateBenef(b.id, "descricao", e.target.value)}
+                      placeholder="Descrição do benefício" style={{ ...cs.input({ flex: 1, width: "auto", padding: "6px 10px", fontSize: 13 }), background: CT.bg4 }} />
+                    <div style={{ position: "relative", width: 120, flexShrink: 0 }}>
+                      <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: CT.textMuted, pointerEvents: "none" }}>R$</span>
+                      <input type="number" value={b.valor || ""} onChange={e => updateBenef(b.id, "valor", e.target.value)}
+                        placeholder="0,00" style={{ ...cs.input({ padding: "6px 10px 6px 28px", fontSize: 13 }), background: CT.bg4 }} min="0" step="0.01" />
+                    </div>
+                    <button onClick={() => removeBeneficio(b.id)} style={{ background: CT.redDim, border: "none", borderRadius: 6, cursor: "pointer", color: CT.red, fontSize: 14, padding: "4px 8px", flexShrink: 0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={novoBenef.descricao} onChange={e => setNovoBenef(n => ({ ...n, descricao: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && addBeneficio()}
+                placeholder="Descrição do benefício..." style={{ ...cs.input({ flex: 1, width: "auto", padding: "7px 12px", fontSize: 13 }) }} />
+              <div style={{ position: "relative", width: 130, flexShrink: 0 }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: CT.textMuted, pointerEvents: "none" }}>R$</span>
+                <input type="number" value={novoBenef.valor} onChange={e => setNovoBenef(n => ({ ...n, valor: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && addBeneficio()}
+                  placeholder="Valor" style={{ ...cs.input({ padding: "7px 10px 7px 30px", fontSize: 13 }) }} min="0" step="0.01" />
+              </div>
+              <button onClick={addBeneficio} style={cs.btn(CT.accent, { padding: "7px 14px", flexShrink: 0 })}>+ Add</button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 4, borderTop: `1px solid ${CT.border}` }}>
+            <button onClick={onClose} style={cs.btn(CT.bg4, { color: CT.text })}>Cancelar</button>
+            <button onClick={handleSave} style={cs.btn(CT.accent)}>{isNew ? "Criar Campanha" : "Salvar"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RELATÓRIO TRIMESTRAL ──────────────────────────────────────────────────────
+function RelatorioTrimestral({ campanhas, socialData, quarter, year, onClose }) {
+  // quarter: 1=Jan-Mar, 2=Abr-Jun, 3=Jul-Set, 4=Out-Dez
+  const quarterMonths = {
+    1: ["01","02","03"], 2: ["04","05","06"],
+    3: ["07","08","09"], 4: ["10","11","12"],
+  };
+  const qMonths = quarterMonths[quarter];
+  const qLabel = { 1:"Q1 (Jan–Mar)", 2:"Q2 (Abr–Jun)", 3:"Q3 (Jul–Set)", 4:"Q4 (Out–Dez)" }[quarter];
+
+  // Filtra campanhas ativas neste trimestre
+  const qCamps = toArr(campanhas).filter(c => {
+    if (!c.mesInicio) return false;
+    const [cy, cm] = c.mesInicio.split("-");
+    if (Number(cy) !== year) return false;
+    return qMonths.includes(cm);
+  });
+
+  // Agrega dados sociais do trimestre
+  const platforms = ["instagram","tiktok","youtube"];
+  const socialAgg = {};
+  platforms.forEach(plat => {
+    const posts = toArr(socialData[plat]).filter(p => {
+      if (!p.date) return false;
+      const [py, pm] = p.date.split("-");
+      return Number(py) === year && qMonths.includes(pm);
+    });
+    socialAgg[plat] = {
+      posts: posts.length,
+      views: posts.reduce((a, p) => a + (p.views||0), 0),
+      likes: posts.reduce((a, p) => a + (p.likes||0), 0),
+      comments: posts.reduce((a, p) => a + (p.comments||0), 0),
+      shares: posts.reduce((a, p) => a + (p.shares||0), 0),
+      saves: posts.reduce((a, p) => a + (p.saves||0), 0),
+    };
+  });
+
+  const totalInvest = qCamps.reduce((a, c) => a + (Number(c.investido)||0), 0);
+  const totalRetorno = qCamps.reduce((a, c) => a + (Number(c.retornoEsperado)||0), 0);
+  const totalBenef = qCamps.reduce((a, c) => a + toArr(c.beneficios).reduce((x, b) => x + (Number(b.valor)||0), 0), 0);
+  const roiGeral = totalInvest > 0 ? (((totalRetorno - totalInvest) / totalInvest) * 100).toFixed(1) : "0.0";
+  const totalViews = platforms.reduce((a, p) => a + socialAgg[p].views, 0);
+  const totalLikes = platforms.reduce((a, p) => a + socialAgg[p].likes, 0);
+
+  const platIcons = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
+  const platColors = { instagram: "#E1306C", tiktok: "#ff2d55", youtube: "#FF0000" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 2000, overflowY: "auto", padding: 16 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "100%", maxWidth: 780, ...cs.card({ padding: 0, overflow: "hidden", marginBottom: 24, boxShadow: "0 32px 80px #00000099" }) }}>
+        {/* Header do relatório */}
+        <div style={{ background: `linear-gradient(135deg, ${CT.accent}22, ${CT.teal}22)`, padding: "24px 28px", borderBottom: `1px solid ${CT.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: CT.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📊</div>
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: CT.textMuted, letterSpacing: 1, textTransform: "uppercase" }}>Relatório Trimestral</p>
+                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: CT.text }}>{qLabel} · {year}</h2>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: CT.textSub }}>{qCamps.length} campanha{qCamps.length !== 1 ? "s" : ""} ativas no período</p>
+            </div>
+            <button onClick={onClose} style={{ background: CT.bg3, border: `1px solid ${CT.border}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: CT.textMuted, fontSize: 13, fontFamily: "inherit" }}>Fechar</button>
+          </div>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* KPIs financeiros */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+            {[
+              ["💰 Investido", fmtMoney(totalInvest), CT.blue],
+              ["🎯 Retorno Esperado", fmtMoney(totalRetorno), CT.teal],
+              ["✨ Benefícios", fmtMoney(totalBenef), CT.accent],
+              [`📈 ROI Geral`, `${roiGeral >= 0 ? "+" : ""}${roiGeral}%`, Number(roiGeral) >= 0 ? CT.green : CT.red],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ ...cs.card({ padding: "14px 16px", background: color + "10", border: `1px solid ${color}33` }) }}>
+                <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, color: CT.textMuted, letterSpacing: .8, textTransform: "uppercase" }}>{label}</p>
+                <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Desempenho Social */}
+          <div>
+            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 800, color: CT.text }}>📱 Desempenho Social no Trimestre</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {platforms.map(plat => {
+                const ag = socialAgg[plat];
+                if (ag.posts === 0) return null;
+                const engRate = ag.views > 0 ? (((ag.likes + ag.comments + ag.shares) / ag.views) * 100).toFixed(1) : "0.0";
+                return (
+                  <div key={plat} style={{ ...cs.card({ padding: "14px 16px", background: CT.bg3 }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: platColors[plat] + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                      {platIcons[plat]}
+                    </div>
+                    <div style={{ minWidth: 80 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: CT.text, textTransform: "capitalize" }}>{plat}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: CT.textMuted }}>{ag.posts} post{ag.posts !== 1 ? "s" : ""}</p>
+                    </div>
+                    <div style={{ flex: 1, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      {[["👁️ Views", ag.views, platColors[plat]], ["❤️ Curtidas", ag.likes, "#ec4899"], ["💬 Coments.", ag.comments, CT.teal], ["📤 Compart.", ag.shares, CT.green]].map(([label, val, color]) => (
+                        <div key={label}>
+                          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color }}>{fmtNum(val)}</p>
+                          <p style={{ margin: 0, fontSize: 10, color: CT.textMuted }}>{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: Number(engRate) > 5 ? CT.green : Number(engRate) > 2 ? CT.amber : CT.red }}>{engRate}%</p>
+                      <p style={{ margin: 0, fontSize: 10, color: CT.textMuted }}>eng. médio</p>
+                    </div>
+                  </div>
+                );
+              })}
+              {platforms.every(p => socialAgg[p].posts === 0) && (
+                <div style={{ padding: "20px", textAlign: "center", color: CT.textMuted, fontSize: 13 }}>
+                  Nenhum dado social encontrado para este trimestre.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Campanhas do trimestre */}
+          {qCamps.length > 0 && (
+            <div>
+              <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 800, color: CT.text }}>🏁 Campanhas do Período</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {qCamps.map(camp => {
+                  const benefTotal = toArr(camp.beneficios).reduce((a, b) => a + (Number(b.valor)||0), 0);
+                  const inv = Number(camp.investido)||0;
+                  const ret = Number(camp.retornoEsperado)||0;
+                  const roi = inv > 0 ? (((ret - inv) / inv) * 100).toFixed(1) : null;
+                  return (
+                    <div key={camp.id} style={cs.card({ padding: "14px 16px", background: CT.bg1 })}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
+                        <div>
+                          <p style={{ margin: "0 0 4px", fontWeight: 800, fontSize: 14, color: CT.text }}>{camp.nome}</p>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <span style={cs.badge(CT.accent)}>{camp.plataforma}</span>
+                            {camp.mesInicio && <span style={{ fontSize: 10, color: CT.textMuted }}>📅 {camp.mesInicio}{camp.mesFim && camp.mesFim !== camp.mesInicio ? ` → ${camp.mesFim}` : ""}</span>}
+                            {roi !== null && <span style={{ ...cs.badge(Number(roi) >= 0 ? CT.green : CT.red), fontSize: 10 }}>ROI: {roi >= 0 ? "+" : ""}{roi}%</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 14, flexShrink: 0, flexWrap: "wrap" }}>
+                          {[["Investido", fmtMoney(inv), CT.blue], ["Retorno Esp.", fmtMoney(ret), CT.teal], ["Benefícios", fmtMoney(benefTotal), CT.accent]].map(([l, v, c]) => (
+                            <div key={l} style={{ textAlign: "right" }}>
+                              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: c }}>{v}</p>
+                              <p style={{ margin: 0, fontSize: 10, color: CT.textMuted }}>{l}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {toArr(camp.beneficios).length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {toArr(camp.beneficios).map(b => (
+                            <span key={b.id} style={{ fontSize: 11, background: CT.accentDim, border: `1px solid ${CT.accent}33`, borderRadius: 20, padding: "3px 10px", color: CT.accent }}>
+                              ✨ {b.descricao}: {fmtMoney(b.valor)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {qCamps.length === 0 && (
+            <div style={{ textAlign: "center", padding: "24px", color: CT.textMuted }}>
+              <p style={{ fontSize: 32, margin: "0 0 8px" }}>📭</p>
+              <p style={{ fontSize: 13 }}>Nenhuma campanha iniciada neste trimestre.</p>
+            </div>
+          )}
+
+          {/* Resumo Executivo */}
+          <div style={{ ...cs.card({ padding: "16px 20px", background: `linear-gradient(135deg, ${CT.accent}0a, ${CT.teal}0a)`, border: `1px solid ${CT.accent}22` }) }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 800, color: CT.accent }}>📝 Resumo Executivo</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, color: CT.textSub }}>
+              <div>• <strong style={{ color: CT.text }}>{qCamps.length}</strong> campanha{qCamps.length !== 1 ? "s" : ""} no período</div>
+              <div>• <strong style={{ color: CT.text }}>{fmtMoney(totalInvest)}</strong> investido no total</div>
+              <div>• <strong style={{ color: CT.text }}>{fmtMoney(totalRetorno)}</strong> de retorno esperado</div>
+              <div>• <strong style={{ color: CT.text }}>{fmtMoney(totalBenef)}</strong> em benefícios fechados</div>
+              <div>• <strong style={{ color: Number(roiGeral) >= 0 ? CT.green : CT.red }}>{roiGeral >= 0 ? "+" : ""}{roiGeral}%</strong> ROI geral</div>
+              <div>• <strong style={{ color: CT.text }}>{fmtNum(totalViews)}</strong> views no social</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CAMPANHAS TAB PRINCIPAL ───────────────────────────────────────────────────
+function CampanhasTab({ campanhas, updateCampanhas, socialData }) {
+  const [modal, setModal] = React.useState(null); // null | "new" | campanha object
+  const [relatorio, setRelatorio] = React.useState(null); // { quarter, year }
+  const [filterStatus, setFilterStatus] = React.useState("all");
+  const [filterPlat, setFilterPlat] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+  const [viewMode, setViewMode] = React.useState("cards"); // "cards" | "table"
+  const [relQuarter, setRelQuarter] = React.useState(Math.ceil((new Date().getMonth() + 1) / 3));
+  const [relYear, setRelYear] = React.useState(new Date().getFullYear());
+
+  const allCamps = toArr(campanhas);
+
+  const statusConfig = {
+    ativa: { label: "Ativa", color: CT.green, icon: "🟢" },
+    pausada: { label: "Pausada", color: CT.amber, icon: "🟡" },
+    encerrada: { label: "Encerrada", color: CT.red, icon: "🔴" },
+    planejada: { label: "Planejada", color: CT.blue, icon: "🔵" },
+  };
+
+  const filtered = allCamps.filter(c => {
+    if (filterStatus !== "all" && c.status !== filterStatus) return false;
+    if (filterPlat !== "all" && c.plataforma !== filterPlat) return false;
+    if (search && !c.nome.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const totalInvest = filtered.reduce((a, c) => a + (Number(c.investido)||0), 0);
+  const totalRetorno = filtered.reduce((a, c) => a + (Number(c.retornoEsperado)||0), 0);
+  const totalBenef = filtered.reduce((a, c) => a + toArr(c.beneficios).reduce((x, b) => x + (Number(b.valor)||0), 0), 0);
+  const roiGeral = totalInvest > 0 ? (((totalRetorno - totalInvest) / totalInvest) * 100).toFixed(1) : "—";
+
+  const saveCampanha = (camp) => {
+    const exists = allCamps.find(c => c.id === camp.id);
+    if (exists) updateCampanhas(allCamps.map(c => c.id === camp.id ? camp : c));
+    else updateCampanhas([...allCamps, camp]);
+    setModal(null);
+  };
+
+  const deleteCampanha = (id) => {
+    if (!window.confirm("Excluir esta campanha?")) return;
+    updateCampanhas(allCamps.filter(c => c.id !== id));
+  };
+
+  const plataformas = [...new Set(allCamps.map(c => c.plataforma).filter(Boolean))];
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2 style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 900, color: CT.text }}>
+            📣 Campanhas
+          </h2>
+          <p style={{ margin: 0, fontSize: 12, color: CT.textMuted }}>Gestão de investimento, retorno e benefícios</p>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setModal("new")} style={cs.btn(CT.accent)}>+ Nova Campanha</button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
+        {[
+          ["💰 Investido", fmtMoney(totalInvest), CT.blue, "Total filtrado"],
+          ["🎯 Retorno Esp.", fmtMoney(totalRetorno), CT.teal, "Retorno esperado"],
+          ["✨ Benefícios", fmtMoney(totalBenef), CT.accent, "Valor total fechado"],
+          ["📈 ROI Geral", roiGeral !== "—" ? `${Number(roiGeral) >= 0 ? "+" : ""}${roiGeral}%` : "—", Number(roiGeral) >= 0 ? CT.green : CT.red, "Retorno sobre investimento"],
+        ].map(([label, val, color, sub]) => (
+          <div key={label} style={cs.card({ padding: "14px 16px" })}>
+            <p style={{ margin: "0 0 2px", fontSize: 10, fontWeight: 700, color: CT.textMuted, letterSpacing: .8, textTransform: "uppercase" }}>{label}</p>
+            <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 900, color }}>{val}</p>
+            <p style={{ margin: 0, fontSize: 10, color: CT.textMuted }}>{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Barra de ferramentas */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", background: CT.bg1, border: `1px solid ${CT.border}`, borderRadius: 12, padding: "10px 14px", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 120, maxWidth: 200 }}>
+          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: CT.textMuted, pointerEvents: "none" }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." style={cs.input({ paddingLeft: 30, fontSize: 13, background: CT.bg2 })} />
+        </div>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={cs.select({ maxWidth: 150, fontSize: 13, background: CT.bg2 })}>
+          <option value="all">Todos status</option>
+          {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+        </select>
+        {plataformas.length > 0 && (
+          <select value={filterPlat} onChange={e => setFilterPlat(e.target.value)} style={cs.select({ maxWidth: 170, fontSize: 13, background: CT.bg2 })}>
+            <option value="all">Todas plataformas</option>
+            {plataformas.map(p => <option key={p}>{p}</option>)}
+          </select>
+        )}
+        {/* Relatório Trimestral */}
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto", alignItems: "center", flexWrap: "wrap" }}>
+          <select value={relQuarter} onChange={e => setRelQuarter(Number(e.target.value))} style={cs.select({ maxWidth: 140, fontSize: 12, background: CT.bg3 })}>
+            <option value={1}>Q1: Jan–Mar</option>
+            <option value={2}>Q2: Abr–Jun</option>
+            <option value={3}>Q3: Jul–Set</option>
+            <option value={4}>Q4: Out–Dez</option>
+          </select>
+          <select value={relYear} onChange={e => setRelYear(Number(e.target.value))} style={cs.select({ maxWidth: 90, fontSize: 12, background: CT.bg3 })}>
+            {[2024,2025,2026,2027].map(y => <option key={y}>{y}</option>)}
+          </select>
+          <button onClick={() => setRelatorio({ quarter: relQuarter, year: relYear })}
+            style={cs.btn(CT.teal, { fontSize: 12, padding: "8px 14px", display: "flex", alignItems: "center", gap: 6 })}>
+            📊 Relatório {['Q1','Q2','Q3','Q4'][relQuarter-1]}
+          </button>
+        </div>
+      </div>
+
+      {/* Lista de Campanhas */}
+      {filtered.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", ...cs.card({ border: `2px dashed ${CT.border}` }) }}>
+          <p style={{ fontSize: 40, margin: "0 0 10px" }}>📣</p>
+          <p style={{ color: CT.textMuted, fontSize: 15, fontWeight: 700, margin: "0 0 6px" }}>
+            {allCamps.length === 0 ? "Nenhuma campanha ainda" : "Nenhuma campanha encontrada"}
+          </p>
+          <p style={{ color: CT.textMuted, fontSize: 13, margin: "0 0 20px" }}>
+            {allCamps.length === 0 ? "Crie sua primeira campanha para começar a acompanhar resultados." : "Tente ajustar os filtros."}
+          </p>
+          {allCamps.length === 0 && (
+            <button onClick={() => setModal("new")} style={cs.btn(CT.accent)}>+ Criar Campanha</button>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {filtered.map(camp => {
+          const sc = statusConfig[camp.status] || statusConfig.ativa;
+          const beneficios = toArr(camp.beneficios);
+          const totalBenefCamp = beneficios.reduce((a, b) => a + (Number(b.valor)||0), 0);
+          const inv = Number(camp.investido)||0;
+          const ret = Number(camp.retornoEsperado)||0;
+          const roi = inv > 0 ? (((ret - inv) / inv) * 100).toFixed(1) : null;
+          const maxVal = Math.max(inv, ret, totalBenefCamp, 1);
+
+          return (
+            <div key={camp.id} style={cs.card({ padding: 0, overflow: "hidden" })}>
+              {/* Barra de status colorida */}
+              <div style={{ height: 3, background: `linear-gradient(90deg, ${sc.color}, ${sc.color}55)` }} />
+
+              <div style={{ padding: "16px 18px" }}>
+                {/* Row 1: Nome + controles */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                      <h3 style={{ margin: 0, fontWeight: 800, fontSize: 15, color: CT.text }}>{camp.nome}</h3>
+                      <span style={{ ...cs.badge(sc.color), fontSize: 10 }}>{sc.icon} {sc.label}</span>
+                      <span style={{ ...cs.badge(CT.accent), fontSize: 10 }}>{camp.plataforma}</span>
+                      {roi !== null && (
+                        <span style={{ ...cs.badge(Number(roi) >= 0 ? CT.green : CT.red), fontSize: 10 }}>
+                          {Number(roi) >= 0 ? "▲" : "▼"} ROI {roi >= 0 ? "+" : ""}{roi}%
+                        </span>
+                      )}
+                    </div>
+                    {camp.descricao && <p style={{ margin: "0 0 4px", fontSize: 12, color: CT.textSub, lineHeight: 1.4 }}>{camp.descricao}</p>}
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      {camp.mesInicio && (
+                        <span style={{ fontSize: 11, color: CT.textMuted }}>
+                          📅 {camp.mesInicio}{camp.mesFim && camp.mesFim !== camp.mesInicio ? ` → ${camp.mesFim}` : ""}
+                        </span>
+                      )}
+                      {camp.tags && camp.tags.split(",").filter(t => t.trim()).map(tag => (
+                        <span key={tag} style={{ fontSize: 10, background: CT.bg4, borderRadius: 20, padding: "1px 8px", color: CT.textMuted }}>#{tag.trim()}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => setModal(camp)} style={cs.btn(CT.bg4, { color: CT.text, fontSize: 12, padding: "6px 12px" })}>✏️ Editar</button>
+                    <button onClick={() => deleteCampanha(camp.id)} style={cs.btn(CT.redDim, { color: CT.red, fontSize: 12, padding: "6px 12px" })}>🗑️</button>
+                  </div>
+                </div>
+
+                {/* Row 2: Financeiro */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  {[
+                    ["💰 Investido", inv, CT.blue],
+                    ["🎯 Retorno Esp.", ret, CT.teal],
+                    ["✨ Benefícios", totalBenefCamp, CT.accent],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: color + "10", border: `1px solid ${color}22`, borderRadius: 8, padding: "10px 12px" }}>
+                      <p style={{ margin: "0 0 1px", fontSize: 10, color: CT.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5 }}>{label}</p>
+                      <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 900, color }}>{fmtMoney(val)}</p>
+                      <MiniProgress value={val} max={maxVal} color={color} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Row 3: Benefícios */}
+                {beneficios.length > 0 && (
+                  <div>
+                    <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: CT.textMuted, textTransform: "uppercase", letterSpacing: .8 }}>Benefícios Fechados</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {beneficios.map(b => (
+                        <div key={b.id} style={{ background: CT.accentDim, border: `1px solid ${CT.accent}33`, borderRadius: 20, padding: "4px 12px", display: "flex", align: "center", gap: 6 }}>
+                          <span style={{ fontSize: 11, color: CT.accent, fontWeight: 600 }}>✨ {b.descricao}</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: CT.green }}>• {fmtMoney(b.valor)}</span>
+                        </div>
+                      ))}
+                      <div style={{ background: CT.greenDim, border: `1px solid ${CT.green}33`, borderRadius: 20, padding: "4px 12px" }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: CT.green }}>Total: {fmtMoney(totalBenefCamp)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modais */}
+      {modal && (
+        <CampanhaModal
+          campanha={modal === "new" ? null : modal}
+          onSave={saveCampanha}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {relatorio && (
+        <RelatorioTrimestral
+          campanhas={allCamps}
+          socialData={socialData}
+          quarter={relatorio.quarter}
+          year={relatorio.year}
+          onClose={() => setRelatorio(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+export { CampanhasTab };
+
 /* ─── APP ────────────────────────────────────────────────── */
 export default function App() {
   const [members, setMembers]       = useState([]);
@@ -2471,6 +3125,7 @@ export default function App() {
   const [notifs, setNotifs]         = useState({});
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
+  const [campanhas, setCampanhas] = useState([]);
 
   const presence = usePresence();
 
@@ -2491,6 +3146,7 @@ export default function App() {
   }, [members, dbReady]);
 
   useEffect(() => {
+    onValue(ref(db, 'campanhas'), snap => setCampanhas(toArr(snap.val())));
     onValue(ref(db, '/'), snap => {
       if (!snap.exists()) {
         set(ref(db, '/'), { members: INIT_MEMBERS, columns: INIT_COLUMNS, events: INIT_EVENTS, social: INIT_SOCIAL, taskTypes: DEFAULT_TASK_TYPES });
@@ -2499,13 +3155,14 @@ export default function App() {
     }, { onlyOnce: true });
 
     const unsubs = [
-      onValue(ref(db, 'members'),   snap => setMembers(toArr(snap.val()))),
-      onValue(ref(db, 'columns'),   snap => setColumns(normalizeCols(snap.val()))),
-      onValue(ref(db, 'events'),    snap => setEvents(toArr(snap.val()))),
-      onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {})),
-      onValue(ref(db, 'taskTypes'), snap => { if (snap.val()) setTaskTypes(toArr(snap.val())); }),
-    ];
-    return () => unsubs.forEach(u => u());
+  onValue(ref(db, 'campanhas'),  snap => setCampanhas(toArr(snap.val()))),
+  onValue(ref(db, 'members'),   snap => setMembers(toArr(snap.val()))),
+  onValue(ref(db, 'columns'),   snap => setColumns(normalizeCols(snap.val()))),
+  onValue(ref(db, 'events'),    snap => setEvents(toArr(snap.val()))),
+  onValue(ref(db, 'social'),    snap => setSocialData(snap.val() || {})),
+  onValue(ref(db, 'taskTypes'), snap => { if (snap.val()) setTaskTypes(toArr(snap.val())); }),
+];
+return () => unsubs.forEach(u => u());
   }, []);
 
   const updateMembers   = v => set(ref(db, 'members'), v);
@@ -2513,8 +3170,10 @@ export default function App() {
   const updateEvents    = v => set(ref(db, 'events'), v);
   const updateSocial    = v => set(ref(db, 'social'), v);
   const updateTaskTypes = v => set(ref(db, 'taskTypes'), v);
+  const updateCampanhas = v => set(ref(db, 'campanhas'), v);
 
   const onLogin    = member => setCurrentUser(member);
+  const isFelipe = currentUser?.name?.toLowerCase().includes("felipe");
   const onRegister = member => updateMembers([...members, member]);
   const onLogout   = () => {
     if (currentUser) set(ref(db, `presence/${currentUser.id}`), { online: false, lastSeen: Date.now() });
@@ -2531,12 +3190,13 @@ export default function App() {
   const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
-    { id: "board",     label: "Board",    icon: "📋" },
-    { id: "users",     label: "Usuários", icon: "👥" },
-    { id: "analytics", label: "Análise",  icon: "📊" },
-    { id: "social",    label: "Social",   icon: "📱" },
-    { id: "calendar",  label: "Agenda",   icon: "📅" },
-  ];
+  { id: "board",     label: "Board",    icon: "📋" },
+  { id: "users",     label: "Usuários", icon: "👥" },
+  { id: "analytics", label: "Análise",  icon: "📊" },
+  { id: "social",    label: "Social",   icon: "📱" },
+  { id: "calendar",  label: "Agenda",   icon: "📅" },
+  ...(isFelipe ? [{ id: "campanhas", label: "Campanhas", icon: "📣" }] : []),
+];
 
   if (!currentUser) {
     return (
@@ -2602,6 +3262,13 @@ export default function App() {
           {tab === "analytics" && <AnalyticsTab columns={columns} members={members} presence={presence} />}
           {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
           {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} presence={presence} />}
+          {tab === "campanhas" && isFelipe && (
+  <CampanhasTab
+    campanhas={campanhas}
+    updateCampanhas={updateCampanhas}
+    socialData={socialData}
+  />
+)}
         </div>
 
         <nav className="bottom-nav">
