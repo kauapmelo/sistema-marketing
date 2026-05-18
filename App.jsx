@@ -706,7 +706,10 @@ function CardModal({ card, colId, members, currentUser, taskTypes, onSave, onClo
   const [checkText, setCheckText] = useState("");
   const setF = (key, val) => setForm(f => ({ ...f, [key]: val }));
   const handlePriorityChange = pid => { const p = getPriority(pid); setForm(f => ({ ...f, priority: pid, points: p.points })); };
-  const toggleMember = id => setF("members", form.members.includes(id) ? form.members.filter(x => x !== id) : [...form.members, id]);
+const toggleMember = id => {
+  const currentMembers = form.members || [];
+  setF("members", currentMembers.includes(id) ? currentMembers.filter(x => x !== id) : [...currentMembers, id]);
+};
   const addMention = () => {
     const m = mention.trim(); if (!m) return;
     const tag = m.startsWith("@") ? m : "@" + m;
@@ -1021,7 +1024,7 @@ function FolderModal({ colId, onSave, onClose }) {
 function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence }) {
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(folder.name);
-  const folderCards = cards.filter(c => folder.cardIds.includes(c.id));
+ const folderCards = cards.filter(c => (folder.cardIds || []).includes(c.id));
   const completedCount = folderCards.filter(c => c.completed).length;
   const isDragOver = dragOverFolder?.colId === colId && dragOverFolder?.folderId === folder.id;
 
@@ -1232,7 +1235,7 @@ const setFolders = (updater) => {
   };
 
   const getCardFolder = (colId, cardId) =>
-    (folders[colId] || []).find(f => f.cardIds.includes(cardId)) || null;
+  (folders[colId] || []).find(f => (f.cardIds || []).includes(cardId)) || null;
 
   /* ── Toast ── */
   const addToast = useCallback((title, points) => {
