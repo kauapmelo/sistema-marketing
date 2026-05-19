@@ -102,6 +102,17 @@ const GLOBAL_STYLE = `
   }
 }
 
+@media (max-width: 600px) {
+  .kanban-col button {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 6px 8px !important;
+  }
+  .card-pills {
+    flex-wrap: wrap;
+  }
+}
+
   .bottom-nav {
     display: none;
     position: fixed;
@@ -866,6 +877,9 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   const isCompleted = !!card.completed;
   const dueDate = card.due ? card.due.slice(0, 10) : null;
   const isOverdue = dueDate && dueDate < today && !isCompleted;
+  
+  const isFirst = realIndex === 0;
+  const isLast = realIndex === totalRealCards - 1;
 
   // Touch/Long press handlers
   const handleTouchStart = (e) => {
@@ -911,21 +925,21 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
   };
 
   // Drag handlers for desktop
- const handleDragStart = (e) => {
-  setDrag(true);
-  const dragData = JSON.stringify({ card, fromCol: colId });
-  e.dataTransfer.setData("card", dragData);
-  e.dataTransfer.setData("dragType", "card");
-  e.dataTransfer.effectAllowed = "move";
-  
-  // Para mobile/fallback
-  window.draggedCardData = dragData;
-  e.currentTarget.setAttribute('data-card-data', dragData);
-  
-  if (e.dataTransfer.setDragImage) {
-    e.dataTransfer.setDragImage(new Image(), 0, 0);
-  }
-};
+  const handleDragStart = (e) => {
+    setDrag(true);
+    const dragData = JSON.stringify({ card, fromCol: colId });
+    e.dataTransfer.setData("card", dragData);
+    e.dataTransfer.setData("dragType", "card");
+    e.dataTransfer.effectAllowed = "move";
+    
+    // Para mobile/fallback
+    window.draggedCardData = dragData;
+    e.currentTarget.setAttribute('data-card-data', dragData);
+    
+    if (e.dataTransfer.setDragImage) {
+      e.dataTransfer.setDragImage(new Image(), 0, 0);
+    }
+  };
   
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -994,12 +1008,61 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
         animation: completing ? "completePop .32s ease" : "none",
         position: "relative", 
         overflow: "hidden",
-        touchAction: "none", // Importante para touch
+        touchAction: "none",
       }}>
       {isCompleted && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
         <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
+          {/* Botão mover para CIMA */}
+          {onMoveUp && !isFirst && (
+            <button 
+              title="Mover para cima" 
+              onClick={(e) => { e.stopPropagation(); onMoveUp(card.id, colId); }}
+              style={{ 
+                background: T.bg4, 
+                border: `1px solid ${T.border}`, 
+                borderRadius: 4, 
+                cursor: "pointer", 
+                color: T.textMuted, 
+                fontSize: 12, 
+                padding: "2px 5px", 
+                fontFamily: "inherit", 
+                fontWeight: 700,
+                transition: "all .15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = T.accent; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = T.bg4; e.currentTarget.style.color = T.textMuted; }}
+            >
+              ▲
+            </button>
+          )}
+          
+          {/* Botão mover para BAIXO */}
+          {onMoveDown && !isLast && (
+            <button 
+              title="Mover para baixo" 
+              onClick={(e) => { e.stopPropagation(); onMoveDown(card.id, colId); }}
+              style={{ 
+                background: T.bg4, 
+                border: `1px solid ${T.border}`, 
+                borderRadius: 4, 
+                cursor: "pointer", 
+                color: T.textMuted, 
+                fontSize: 12, 
+                padding: "2px 5px", 
+                fontFamily: "inherit", 
+                fontWeight: 700,
+                transition: "all .15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = T.accent; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = T.bg4; e.currentTarget.style.color = T.textMuted; }}
+            >
+              ▼
+            </button>
+          )}
+          
+          {/* Botão de concluir */}
           <button 
             title={isCompleted ? "Desmarcar como concluído" : "Marcar como concluído"} 
             onClick={handleComplete} 
@@ -1007,22 +1070,22 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
             style={{ 
               background: isCompleted ? T.green + "33" : (completing ? T.green + "40" : T.green + "18"), 
               border: `1px solid ${isCompleted ? T.green + "88" : T.green + "44"}`, 
-              borderRadius: 6, 
+              borderRadius: 4, 
               cursor: "pointer", 
               color: T.green, 
               fontSize: 12, 
               padding: "2px 5px", 
               fontFamily: "inherit", 
               fontWeight: 700, 
-              lineHeight: 1.4, 
               transition: "background .15s",
               opacity: completing ? 0.6 : 1
             }}
           >
             {isCompleted ? "↩️" : "✅"}
           </button>
-          <button onClick={() => onOpen(card, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>✏️</button>
-          <button onClick={() => onDelete(card.id, colId)} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 14, padding: "0 2px" }}>🗑️</button>
+          
+          <button onClick={() => onOpen(card, colId)} style={{ background: T.bg4, border: `1px solid ${T.border}`, borderRadius: 4, cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 5px" }}>✏️</button>
+          <button onClick={() => onDelete(card.id, colId)} style={{ background: T.bg4, border: `1px solid ${T.border}`, borderRadius: 4, cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 5px" }}>🗑️</button>
         </div>
       </div>
       <div className="card-pills" style={{ display: "flex", gap: 6, marginBottom: 8 }}>
@@ -1145,7 +1208,7 @@ function FolderModal({ colId, onSave, onClose }) {
   );
 }
 
-function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence, onDragReorder }) {
+function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRename, onOpen, onDeleteCard, onComplete, onMoveUp, onMoveDown, onRemoveCard, onDragOverFolder, onDropFolder, dragOverFolder, presence, onDragReorder, onMoveFolderUp, onMoveFolderDown, isFirstFolder, isLastFolder }) {
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(folder.name);
   const folderCards = cards.filter(c => (folder.cardIds || []).includes(c.id));
@@ -1171,6 +1234,55 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
           userSelect: "none",
         }}
       >
+        {/* Botões de mover pasta (CIMA/BAIXO) */}
+        <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          {onMoveFolderUp && !isFirstFolder && (
+            <button
+              title="Mover pasta para cima"
+              onClick={() => onMoveFolderUp(colId, folder.id)}
+              style={{
+                background: T.bg4,
+                border: `1px solid ${T.border}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                color: T.textMuted,
+                fontSize: 11,
+                padding: "2px 6px",
+                fontFamily: "inherit",
+                fontWeight: 700,
+                transition: "all .15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = T.accent; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = T.bg4; e.currentTarget.style.color = T.textMuted; }}
+            >
+              ▲
+            </button>
+          )}
+          
+          {onMoveFolderDown && !isLastFolder && (
+            <button
+              title="Mover pasta para baixo"
+              onClick={() => onMoveFolderDown(colId, folder.id)}
+              style={{
+                background: T.bg4,
+                border: `1px solid ${T.border}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                color: T.textMuted,
+                fontSize: 11,
+                padding: "2px 6px",
+                fontFamily: "inherit",
+                fontWeight: 700,
+                transition: "all .15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = T.accent; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = T.bg4; e.currentTarget.style.color = T.textMuted; }}
+            >
+              ▼
+            </button>
+          )}
+        </div>
+
         {/* Toggle */}
         <span
           onClick={() => onToggle(colId, folder.id)}
@@ -1207,7 +1319,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
         {/* Ações */}
         <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           <button
-            title="Renomear"
+            title="Renomear pasta"
             onClick={() => setRenaming(true)}
             style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12, padding: "2px 3px" }}
           >✏️</button>
@@ -1250,7 +1362,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
                 onComplete={onComplete}
                 onMoveUp={onMoveUp}
                 onMoveDown={onMoveDown}
-                onDragReorder={onDragReorder}  // ← ADICIONADO!
+                onDragReorder={onDragReorder}
                 realIndex={idx}
                 totalRealCards={folderCards.length}
                 presence={presence}
@@ -1260,10 +1372,10 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
                 title="Remover da pasta"
                 onClick={() => onRemoveCard(colId, card.id)}
                 style={{
-                  position: "absolute", top: 8, right: 80,
+                  position: "absolute", top: 8, right: 8,
                   background: T.bg4, border: `1px solid ${T.border}`,
                   borderRadius: 6, cursor: "pointer", color: T.textMuted,
-                  fontSize: 10, padding: "1px 5px", fontFamily: "inherit",
+                  fontSize: 10, padding: "2px 6px", fontFamily: "inherit",
                   fontWeight: 700, lineHeight: 1.4,
                 }}
               >↑ Pasta</button>
@@ -1295,6 +1407,32 @@ const setFolders = (updater) => {
   const [draggingColId, setDraggingColId] = useState(null);
   const [dragOverColId, setDragOverColId] = useState(null);
   const dragTypeRef = useRef(null);
+
+  // Mover pasta para cima
+const moveFolderUp = (colId, folderId) => {
+  const colFolders = [...(folders[colId] || [])];
+  const index = colFolders.findIndex(f => f.id === folderId);
+  if (index <= 0) return;
+  
+  const temp = colFolders[index];
+  colFolders[index] = colFolders[index - 1];
+  colFolders[index - 1] = temp;
+  
+  setFolders(prev => ({ ...prev, [colId]: colFolders }));
+};
+
+// Mover pasta para baixo
+const moveFolderDown = (colId, folderId) => {
+  const colFolders = [...(folders[colId] || [])];
+  const index = colFolders.findIndex(f => f.id === folderId);
+  if (index === -1 || index >= colFolders.length - 1) return;
+  
+  const temp = colFolders[index];
+  colFolders[index] = colFolders[index + 1];
+  colFolders[index + 1] = temp;
+  
+  setFolders(prev => ({ ...prev, [colId]: colFolders }));
+};
 
   const handleReorderCards = useCallback((colId, draggedCardId, targetCardId) => {
   updateColumns(columnsRef.current.map(col => {
@@ -1801,7 +1939,7 @@ useEffect(() => {
                 })}
 
               {/* Pastas */}
-              {colFolders.map(folder => (
+              {colFolders.map((folder, folderIndex) => (
   <FolderBlock
     key={folder.id}
     folder={folder}
@@ -1828,7 +1966,6 @@ useEffect(() => {
       try {
         const { card, fromCol } = JSON.parse(cardData);
         
-        // SÓ move se for para uma coluna DIFERENTE
         if (fromCol !== colId) {
           updateColumns(columnsRef.current.map(c => {
             const cardsAtuais = c.cards || [];
@@ -1843,7 +1980,6 @@ useEffect(() => {
           }));
         }
         
-        // Adiciona o card à pasta (sempre executa)
         addCardToFolder(colId, folderId, card.id);
         setDragOverFolder(null);
         
@@ -1853,7 +1989,11 @@ useEffect(() => {
     }}
     dragOverFolder={dragOverFolder}
     presence={presence}
-    onDragReorder={handleReorderCards}  // ← ADICIONE ESTA LINHA!
+    onDragReorder={handleReorderCards}
+    onMoveFolderUp={moveFolderUp}
+    onMoveFolderDown={moveFolderDown}
+    isFirstFolder={folderIndex === 0}
+    isLastFolder={folderIndex === colFolders.length - 1}
   />
 ))}
 
