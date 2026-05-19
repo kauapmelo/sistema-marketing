@@ -59,58 +59,75 @@ const GLOBAL_STYLE = `
   }
 
   /* ── MOBILE OVERRIDES ── */
-  @media (max-width: 600px) {
-    .nav-label { display: none; }
-    .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    .analytics-grid { grid-template-columns: 1fr !important; }
-    .pri-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    .board-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-    .board-toolbar input,
-    .board-toolbar select { max-width: 100% !important; width: 100% !important; }
-    .board-toolbar-actions { width: 100% !important; }
-    .board-toolbar-actions button { flex: 1 !important; }
-    .card-modal-body { flex-direction: column !important; }
-    .card-modal-right { width: 100% !important; border-right: none !important; border-top: 1px solid #2e2e3a; }
-    .users-grid { grid-template-columns: 1fr !important; }
-    .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
-    .top-bottom-grid { grid-template-columns: 1fr !important; }
-    .col-drag-handle { display: none !important; }
-    .kanban-board { padding-bottom: 12px !important; }
-    .kanban-col { min-width: 240px !important; max-width: 240px !important; }
-    .header-user-name { display: none !important; }
-    .header-user-role { display: none !important; }
-    .header-mycards-label { display: none !important; }
-    .card-pills { flex-wrap: wrap !important; }
-    .analytics-kpi-val { font-size: 20px !important; }
-    .page-content { padding: 10px 8px 60px !important; }
-    .bottom-nav { display: flex !important; }
-    .top-nav-tabs { display: none !important; }
-    .social-header { flex-direction: column !important; align-items: flex-start !important; }
-    .filter-bar { flex-wrap: wrap !important; }
-    .filter-bar-right { margin-left: 0 !important; width: 100% !important; justify-content: stretch !important; }
-    .filter-bar-right button { flex: 1 !important; }
-    .modal-inner { max-width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; max-height: 92vh !important; overflow-y: auto !important; }
-    .cal-detail-row { flex-wrap: wrap !important; gap: 8px !important; }
-    .cal-detail-member { min-width: 0 !important; }
+ @media (max-width: 600px) {
+  .nav-label { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .analytics-grid { grid-template-columns: 1fr !important; }
+  .pri-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .board-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+  .board-toolbar input,
+  .board-toolbar select { max-width: 100% !important; width: 100% !important; }
+  .board-toolbar-actions { width: 100% !important; }
+  .board-toolbar-actions button { flex: 1 !important; }
+  .card-modal-body { flex-direction: column !important; }
+  .card-modal-right { width: 100% !important; border-right: none !important; border-top: 1px solid #2e2e3a; }
+  .users-grid { grid-template-columns: 1fr !important; }
+  .social-kpi { grid-template-columns: repeat(2, 1fr) !important; }
+  .top-bottom-grid { grid-template-columns: 1fr !important; }
+  .col-drag-handle { display: none !important; }
+
+  /* ── KANBAN: scroll snapping para não cortar colunas ── */
+  .kanban-board {
+    padding-bottom: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+  }
+  .kanban-col {
+    min-width: 280px !important;
+    max-width: 88vw !important;
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
   }
 
-  @media (max-width: 600px) {
-  .kanban-card {
-    touch-action: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
+  /* ── CARD: título não vaza, botões não comprimem ── */
+  .kanban-card-title {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
+    flex: 1 !important;
+    min-width: 0 !important;
   }
-}
+  .kanban-card-actions {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    gap: 2px !important;
+    flex-wrap: nowrap !important;
+  }
+  .kanban-card-actions button {
+    min-width: 26px !important;
+    min-height: 26px !important;
+    padding: 2px 4px !important;
+    font-size: 11px !important;
+  }
 
-@media (max-width: 600px) {
-  .kanban-col button {
-    min-width: 36px !important;
-    min-height: 36px !important;
-    padding: 6px 8px !important;
-  }
-  .card-pills {
-    flex-wrap: wrap;
-  }
+  .card-pills { flex-wrap: wrap !important; gap: 4px !important; }
+  .header-user-name { display: none !important; }
+  .header-user-role { display: none !important; }
+  .header-mycards-label { display: none !important; }
+  .analytics-kpi-val { font-size: 20px !important; }
+  .page-content { padding: 10px 8px 60px !important; }
+  .bottom-nav { display: flex !important; }
+  .top-nav-tabs { display: none !important; }
+  .social-header { flex-direction: column !important; align-items: flex-start !important; }
+  .filter-bar { flex-wrap: wrap !important; }
+  .filter-bar-right { margin-left: 0 !important; width: 100% !important; justify-content: stretch !important; }
+  .filter-bar-right button { flex: 1 !important; }
+  .modal-inner { max-width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; max-height: 92vh !important; overflow-y: auto !important; }
+  .cal-detail-row { flex-wrap: wrap !important; gap: 8px !important; }
+  .cal-detail-member { min-width: 0 !important; }
 }
 
   .bottom-nav {
@@ -1009,11 +1026,12 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
         position: "relative", 
         overflow: "hidden",
         touchAction: "none",
+        minWidth: 0,
       }}>
       {isCompleted && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.green}, #16a34a)`, borderRadius: "10px 10px 0 0" }} />}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
-        <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
+        <span className="kanban-card-title" style={{ fontWeight: 600, fontSize: 13, color: isCompleted ? T.textSub : T.text, lineHeight: 1.4, flex: 1, textDecoration: isCompleted ? "line-through" : "none" }}>{card.title}</span>
+        <div className="kanban-card-actions" style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
           {/* Botão mover para CIMA */}
           {onMoveUp && !isFirst && (
             <button 
