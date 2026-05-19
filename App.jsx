@@ -244,18 +244,25 @@ const INIT_EVENTS = [
 ];
 
 const INIT_SOCIAL = {
-  instagram:[
-    { id:"s1",title:"Lançamento Produto X",thumbnail:"🎨",likes:4320,comments:218,shares:891,views:28400,saves:1200,date:"2026-05-10",type:"Reels" },
-    { id:"s2",title:"Campanha Verão 2026",thumbnail:"☀️",likes:2870,comments:143,shares:412,views:15600,saves:540,date:"2026-05-07",type:"Post" },
-  ],
-  tiktok:[
-    { id:"s3",title:"Tutorial rápido 60s",thumbnail:"⚡",likes:18200,comments:934,shares:4210,views:142000,saves:3200,date:"2026-05-09",type:"Vídeo" },
-    { id:"s4",title:"Trend da semana",thumbnail:"🔥",likes:31400,comments:1620,shares:8900,views:287000,saves:6700,date:"2026-05-06",type:"Vídeo" },
-  ],
-  youtube:[
-    { id:"s5",title:"Como usar Produto X completo",thumbnail:"📹",likes:3420,comments:287,shares:541,views:48200,saves:0,date:"2026-05-08",type:"Vídeo" },
-    { id:"s6",title:"Podcast Ep.12 – Marketing",thumbnail:"🎙️",likes:2100,comments:198,shares:412,views:31500,saves:0,date:"2026-04-28",type:"Podcast" },
-  ],
+  escritorio: {
+    instagram: [
+      { id:"s1",title:"Lançamento Produto X",thumbnail:"🎨",likes:4320,comments:218,shares:891,views:28400,saves:1200,date:"2026-05-10",type:"Reels" },
+      { id:"s2",title:"Campanha Verão 2026",thumbnail:"☀️",likes:2870,comments:143,shares:412,views:15600,saves:540,date:"2026-05-07",type:"Post" },
+    ],
+    tiktok: [
+      { id:"s3",title:"Tutorial rápido 60s",thumbnail:"⚡",likes:18200,comments:934,shares:4210,views:142000,saves:3200,date:"2026-05-09",type:"Vídeo" },
+      { id:"s4",title:"Trend da semana",thumbnail:"🔥",likes:31400,comments:1620,shares:8900,views:287000,saves:6700,date:"2026-05-06",type:"Vídeo" },
+    ],
+    youtube: [
+      { id:"s5",title:"Como usar Produto X completo",thumbnail:"📹",likes:3420,comments:287,shares:541,views:48200,saves:0,date:"2026-05-08",type:"Vídeo" },
+      { id:"s6",title:"Podcast Ep.12 – Marketing",thumbnail:"🎙️",likes:2100,comments:198,shares:412,views:31500,saves:0,date:"2026-04-28",type:"Podcast" },
+    ],
+  },
+  anaria: {
+    instagram: [],
+    tiktok: [],
+    youtube: [],
+  },
 };
 
 const s = {
@@ -2485,6 +2492,47 @@ function GaugeRing({ value, max, color, size = 64, label }) {
   );
 }
 
+  /* ─── SOCIAL PROFILE SELECTOR ────────────────────────────── */
+const SOCIAL_PROFILES = [
+  { id: "escritorio", label: "Escritório", icon: "🏢", color: T.blue },
+  { id: "anaria",     label: "Anária",     icon: "✨", color: T.pink },
+];
+
+function SocialProfileSelector({ activeProfile, onSelect }) {
+  return (
+    <div style={{
+      display: "flex", gap: 10, marginBottom: 20,
+      background: T.bg1, border: `1px solid ${T.border}`,
+      borderRadius: 14, padding: "10px 14px",
+      alignItems: "center", flexWrap: "wrap",
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, letterSpacing: 1, textTransform: "uppercase", marginRight: 4 }}>
+        Perfil:
+      </span>
+      {SOCIAL_PROFILES.map(profile => {
+        const isActive = activeProfile === profile.id;
+        return (
+          <button key={profile.id} onClick={() => onSelect(profile.id)} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 18px", borderRadius: 10, border: "none",
+            cursor: "pointer", fontWeight: 700, fontSize: 14,
+            fontFamily: "inherit",
+            background: isActive ? profile.color + "22" : T.bg3,
+            color: isActive ? profile.color : T.textMuted,
+            outline: isActive ? `2px solid ${profile.color}55` : "2px solid transparent",
+            outlineOffset: 2, transition: "all .2s",
+            boxShadow: isActive ? `0 4px 16px ${profile.color}33` : "none",
+          }}>
+            <span style={{ fontSize: 18 }}>{profile.icon}</span>
+            {profile.label}
+            {isActive && <span style={{ width: 7, height: 7, borderRadius: "50%", background: profile.color, display: "inline-block", marginLeft: 2, animation: "pulse 2s infinite" }} />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ─── SOCIAL TAB ─────────────────────────────────────────── */
 function SocialTab({ data, updateData }) {
   const [platform, setPlatform] = useState("instagram");
@@ -2572,8 +2620,13 @@ function SocialTab({ data, updateData }) {
   const metricIcon  = (id) => METRIC_OPTS.find(m => m.id === id)?.icon || "📊";
 
   const parseCSV = (text, plat) => {
-    const raw = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    const firstLine = raw.split("\n")[0] || "";
+    const raw = text
+      .replace(/^\uFEFF/, "")
+      .replace(/\u00EF\u00BB\u00BF/, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n");
+
+    const firstLine = raw.split("\n").find(l => l.trim().length > 0) || "";
     let sc = 0, ss = 0, inQd = false;
     for (const ch of firstLine) {
       if (ch === '"') { inQd = !inQd; continue; }
@@ -2581,6 +2634,7 @@ function SocialTab({ data, updateData }) {
       if (!inQd && ch === ";") ss++;
     }
     const sep = ss > sc ? ";" : ",";
+
     const records = [];
     let cur = "", fields = [], inQuote = false;
     for (let i = 0; i < raw.length; i++) {
@@ -2589,62 +2643,113 @@ function SocialTab({ data, updateData }) {
         if (inQuote && raw[i + 1] === '"') { cur += '"'; i++; }
         else inQuote = !inQuote;
       } else if (!inQuote && ch === sep) {
-        fields.push(cur); cur = "";
+        fields.push(cur.trim()); cur = "";
       } else if (!inQuote && ch === "\n") {
-        fields.push(cur); cur = "";
-        if (fields.some(f => f.trim())) records.push(fields);
+        fields.push(cur.trim()); cur = "";
+        if (fields.some(f => f.length > 0)) records.push(fields);
         fields = [];
       } else { cur += ch; }
     }
-    if (fields.length || cur) { fields.push(cur); if (fields.some(f => f.trim())) records.push(fields); }
+    if (cur || fields.length) {
+      fields.push(cur.trim());
+      if (fields.some(f => f.length > 0)) records.push(fields);
+    }
+
     if (records.length < 2) return { rows: [], headers: [], sep, error: "Arquivo vazio ou sem dados suficientes." };
-    const headers = records[0].map(h => h.trim().toLowerCase());
-    const dataRows = records.slice(1);
-    const findIdx = (exactTerms, partialTerms) => {
-      const ei = headers.findIndex(h => exactTerms.some(k => h === k));
-      if (ei >= 0) return ei;
-      return headers.findIndex(h => (partialTerms || exactTerms).some(k => h.includes(k)));
+
+    const headers = records[0].map(h =>
+      h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    );
+    const rawHeaders = records[0].map(h => h.trim().toLowerCase());
+    const dataRows = records.slice(1).filter(r => r.some(f => f.trim().length > 0));
+
+    const findIdx = (exactTerms, partialTerms = []) => {
+      const normalize = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normExact = exactTerms.map(normalize);
+      const normPartial = (partialTerms.length ? partialTerms : exactTerms).map(normalize);
+      let idx = headers.findIndex(h => normExact.some(k => h === k));
+      if (idx >= 0) return idx;
+      idx = headers.findIndex(h => normPartial.some(k => h.includes(k)));
+      if (idx >= 0) return idx;
+      idx = rawHeaders.findIndex(h => exactTerms.some(k => h.includes(k.toLowerCase())));
+      return idx;
     };
-    const iDesc     = findIdx(["descrição","description","caption","legenda"], ["título","title","conteúdo"]);
+
+    const iDesc     = findIdx(["descricao","description","caption","legenda","titulo","title"], ["titulo","title","conteudo","descri"]);
     const iType     = findIdx(["tipo de post","post type","media type","tipo"], []);
-    const iPubDate  = findIdx(["horário de publicação","data de publicação","published at","post date"], ["horário","publicado","created"]);
-    const iDataCol  = findIdx(["data"], []);
-    const iViews    = findIdx(["visualizações","views","plays","reproduções","video views"], ["visualiz","impres"]);
-    const iReach    = findIdx(["alcance","reach"], []);
-    const iLikes    = findIdx(["curtidas","likes","reações","reactions"], ["curtida","like","reação"]);
+    const iPubDate  = findIdx(["horario de publicacao","data de publicacao","published at","post date","data"], ["horario","publicado","created","data"]);
+    const iViews    = findIdx(["visualizacoes","views","plays","reproducoes","video views","impressoes","impressions"], ["visualiz","impres","views","plays"]);
+    const iReach    = findIdx(["alcance","reach"], ["alcance","reach"]);
+    const iLikes    = findIdx(["curtidas","likes","reacoes","reactions"], ["curtida","like","reacao"]);
     const iShares   = findIdx(["compartilhamentos","shares"], ["compartilh","share"]);
-    const iComments = findIdx(["comentários","comments"], ["comentar","comment"]);
-    const iSaves    = findIdx(["salvamentos","saves","bookmarks"], ["salv","save"]);
+    const iComments = findIdx(["comentarios","comments"], ["comentar","comment"]);
+    const iSaves    = findIdx(["salvamentos","saves","bookmarks"], ["salv","save","bookmark"]);
+
     const get = (row, i) => (i >= 0 && i < row.length) ? row[i].trim() : "";
+
     const parseNum = (val) => {
-      const s2 = String(val || "").trim().replace(/\s/g, "");
-      if (!s2) return 0;
+      const s2 = String(val || "").trim().replace(/\s/g, "").replace(/\u00a0/g, "");
+      if (!s2 || s2 === "-" || s2.toLowerCase() === "n/a") return 0;
       if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(s2)) return Math.round(parseFloat(s2.replace(/\./g, "").replace(",", ".")) || 0);
       if (/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s2)) return Math.round(parseFloat(s2.replace(/,/g, "")) || 0);
-      return Math.round(parseFloat(s2.replace(/[^\d.]/g, "")) || 0);
+      return Math.round(parseFloat(s2.replace(/[^\d.-]/g, "")) || 0);
     };
-    const hasTotalRows = iDataCol >= 0 && dataRows.some(r => get(r, iDataCol).toLowerCase() === "total");
-    const filtered2 = hasTotalRows ? dataRows.filter(r => get(r, iDataCol).toLowerCase() === "total") : dataRows;
-    const rows = filtered2.map((row, idx) => {
+
+    const parseDate = (val) => {
+      if (!val) return new Date().toISOString().slice(0, 10);
+      const s = val.trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+      if (dmy) {
+        const yr = dmy[3].length === 2 ? "20" + dmy[3] : dmy[3];
+        return `${yr}-${dmy[2].padStart(2,"0")}-${dmy[1].padStart(2,"0")}`;
+      }
+      const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,"0")}-${mdy[2].padStart(2,"0")}`;
+      const d = new Date(s);
+      if (!isNaN(d)) return d.toISOString().slice(0, 10);
+      return new Date().toISOString().slice(0, 10);
+    };
+
+    const hasTotalRows = iPubDate >= 0 && dataRows.some(r => get(r, iPubDate).toLowerCase() === "total");
+    const filteredRows = hasTotalRows
+      ? dataRows.filter(r => get(r, iPubDate).toLowerCase() === "total")
+      : dataRows;
+
+    const rows = filteredRows.map((row, idx) => {
       let title = get(row, iDesc);
+      if (!title && iType >= 0) title = get(row, iType);
       if (!title) title = `Post ${idx + 1}`;
       title = title.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-      const hashIdx = title.indexOf(" #");
-      if (hashIdx > 20) title = title.slice(0, hashIdx).trim();
-      title = title.slice(0, 80) || `Post ${idx + 1}`;
-      const views    = parseNum(get(row, iViews)) || parseNum(get(row, iReach));
+      const hashIdx = title.search(/ #[^\s]/);
+      if (hashIdx > 15) title = title.slice(0, hashIdx).trim();
+      title = title.slice(0, 90) || `Post ${idx + 1}`;
+
+      const rawViews = parseNum(get(row, iViews));
+      const rawReach = parseNum(get(row, iReach));
+      const views = plat === "instagram"
+        ? (rawReach > 0 ? rawReach : rawViews)
+        : (rawViews > 0 ? rawViews : rawReach);
+
       const likes    = parseNum(get(row, iLikes));
       const comments = parseNum(get(row, iComments));
       const shares   = parseNum(get(row, iShares));
       const saves    = parseNum(get(row, iSaves));
-      let date = get(row, iPubDate) || new Date().toISOString().slice(0, 10);
-      const mdy = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (mdy) date = `${mdy[3]}-${mdy[1].padStart(2,"0")}-${mdy[2].padStart(2,"0")}`;
-      else date = date.slice(0, 10);
+      const date     = parseDate(get(row, iPubDate));
+
       const rawType = get(row, iType);
-      const type = /reel/i.test(rawType) ? "Reels" : /story|storie/i.test(rawType) ? "Story" : /live/i.test(rawType) ? "Live" : /v[íi]deo|video/i.test(rawType) ? "Vídeo" : "Post";
-      return { id: uid(), title, thumbnail: PLATFORM_ICONS[plat], views, likes, comments, shares, saves, date, type };
+      const type = /reel/i.test(rawType) ? "Reels"
+        : /story|storie/i.test(rawType) ? "Story"
+        : /live/i.test(rawType) ? "Live"
+        : /v[íi]deo|video/i.test(rawType) ? "Vídeo"
+        : /podcast/i.test(rawType) ? "Podcast"
+        : /carrossel|carousel/i.test(rawType) ? "Carrossel"
+        : "Post";
+
+      return { id: uid(), title, thumbnail: PLATFORM_ICONS[plat] || "📄", views, likes, comments, shares, saves, date, type };
     }).filter(r => r.title.length > 0);
+
+    if (!rows.length) return { rows: [], headers, sep, error: "Nenhuma linha com dados válidos encontrada. Verifique o formato do CSV." };
     return { rows, headers, sep, error: null };
   };
 
@@ -2926,6 +3031,50 @@ function SocialTab({ data, updateData }) {
       )}
 
       {guide && <CSVGuide onClose={() => setGuide(false)} />}
+    </div>
+  );
+}
+
+/* ─── SOCIAL TAB WITH PROFILES ───────────────────────────── */
+function SocialTabWithProfiles({ data, updateData }) {
+  const [activeProfile, setActiveProfile] = useState("escritorio");
+
+  const isLegacy = data && !data.escritorio && !data.anaria && (data.instagram || data.tiktok || data.youtube);
+
+  useEffect(() => {
+    if (isLegacy) {
+      updateData({
+        escritorio: {
+          instagram: toArr(data.instagram),
+          tiktok:    toArr(data.tiktok),
+          youtube:   toArr(data.youtube),
+        },
+        anaria: { instagram: [], tiktok: [], youtube: [] },
+      });
+    }
+  }, [isLegacy]);
+
+  const safeData = {
+    escritorio: {
+      instagram: toArr(data?.escritorio?.instagram),
+      tiktok:    toArr(data?.escritorio?.tiktok),
+      youtube:   toArr(data?.escritorio?.youtube),
+    },
+    anaria: {
+      instagram: toArr(data?.anaria?.instagram),
+      tiktok:    toArr(data?.anaria?.tiktok),
+      youtube:   toArr(data?.anaria?.youtube),
+    },
+  };
+
+  const updateProfileData = (newProfileData) => {
+    updateData({ ...safeData, [activeProfile]: newProfileData });
+  };
+
+  return (
+    <div>
+      <SocialProfileSelector activeProfile={activeProfile} onSelect={setActiveProfile} />
+      <SocialTab data={safeData[activeProfile]} updateData={updateProfileData} />
     </div>
   );
 }
@@ -3815,12 +3964,12 @@ function CampanhasTab({ campanhas, updateCampanhas, socialData }) {
       )}
       {relatorio && (
         <RelatorioTrimestral
-          campanhas={allCamps}
-          socialData={socialData}
-          quarter={relatorio.quarter}
-          year={relatorio.year}
-          onClose={() => setRelatorio(null)}
-        />
+  campanhas={allCamps}
+  socialData={socialData?.escritorio || socialData}
+  quarter={relatorio.quarter}
+  year={relatorio.year}
+  onClose={() => setRelatorio(null)}
+/>
       )}
     </div>
   );
@@ -4101,7 +4250,7 @@ export default function App() {
           {tab === "board" && <BoardTab columns={columns} updateColumns={updateColumns} members={members} currentUser={currentUser} onNotify={onNotify} taskTypes={taskTypes} updateTaskTypes={updateTaskTypes} myCardsMode={myCardsMode} setMyCardsMode={setMyCardsMode} presence={presence} folders={folders} updateFolders={updateFolders} />}
           {tab === "users"     && <UsersTab     members={members} updateMembers={updateMembers} columns={columns} presence={presence} />}
           {tab === "analytics" && <AnalyticsTab columns={columns} members={members} presence={presence} />}
-          {tab === "social"    && <SocialTab    data={socialData} updateData={updateSocial} />}
+          {tab === "social" && <SocialTabWithProfiles data={socialData} updateData={updateSocial} />}
           {tab === "calendar"  && <CalendarTab  members={members} columns={columns} events={events} updateEvents={updateEvents} taskTypes={taskTypes} presence={presence} />}
           {tab === "campanhas" && isFelipe && (
             <CampanhasTab
