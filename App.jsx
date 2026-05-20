@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, set } from "firebase/database";
+import { getDatabase, ref, onValue, set, update } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDQtM1C2qNhGUdoBsZMFYEs8ZFuODOAok4",
@@ -321,6 +321,54 @@ function usePresence() {
   return presence;
 }
 
+function useNotifications(userId) {
+  const [notifs, setNotifs] = useState([]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = onValue(ref(db, `notifications/${userId}`), snap => {
+      const data = snap.val();
+      if (!data) { setNotifs([]); return; }
+      const arr = Object.entries(data)
+        .map(([key, val]) => ({ ...val, _key: key }))
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      setNotifs(arr);
+    });
+    return () => unsub();
+  }, [userId]);
+
+  const addNotif = useCallback((targetUserId, text) => {
+    const notif = {
+      id: uid(),
+      text,
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      ts: Date.now(),
+      read: false,
+    };
+    const newRef = ref(db, `notifications/${targetUserId}/${notif.id}`);
+    set(newRef, notif);
+  }, []);
+
+  const markAllRead = useCallback(() => {
+  if (!userId || !notifs.length) return;
+  const updates = {};
+  notifs.forEach(n => { updates[`notifications/${userId}/${n.id}/read`] = true; });
+  update(ref(db), updates);
+}, [userId, notifs]);
+
+  const deleteOne = useCallback((notifId) => {
+    if (!userId) return;
+    set(ref(db, `notifications/${userId}/${notifId}`), null);
+  }, [userId]);
+
+  const deleteAll = useCallback(() => {
+    if (!userId) return;
+    set(ref(db, `notifications/${userId}`), null);
+  }, [userId]);
+
+  return { notifs, addNotif, markAllRead, deleteOne, deleteAll };
+}
+
 /* ─── AVATAR ─────────────────────────────────────────────── */
 function Avatar({ member, size = 28, style = {}, showOnline = false, presence = {} }) {
   const presData = presence[member?.id];
@@ -421,37 +469,108 @@ function ToastContainer({ toasts }) {
 }
 
 /* ─── NOTIFICATION BELL ──────────────────────────────────── */
-function NotifBell({ notifs, onClear }) {
+function NotifBell({ notifs, onClear, onDeleteOne, onMarkRead }) {
   const [open, setOpen] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
   const bellRef = useRef();
+
   useEffect(() => {
-    const fn = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setOpen(false); };
+    const fn = e => {
+      if (bellRef.current && !bellRef.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
+
+  const handleOpen = () => {
+    setOpen(o => !o);
+    if (!open && unread > 0) onMarkRead();
+  };
+
   return (
     <div ref={bellRef} style={{ position: "relative" }}>
-      <button onClick={() => setOpen(o => !o)} style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
+      <button onClick={handleOpen} style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
         <span style={{ fontSize: 20 }}>🔔</span>
-        {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, background: T.red, color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>}
+        {unread > 0 && (
+          <span style={{ position: "absolute", top: 0, right: 0, background: T.red, color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {unread}
+          </span>
+        )}
       </button>
+
       {open && (
-        <div style={{ position: "fixed", right: 12, top: 60, width: "calc(100vw - 24px)", maxWidth: 300, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 8px 32px #00000088`, zIndex: 999, overflow: "hidden" }}>
+        <div style={{ position: "fixed", right: 12, top: 60, width: "calc(100vw - 24px)", maxWidth: 320, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 8px 32px #00000088`, zIndex: 999, overflow: "hidden" }}>
+          {/* Header */}
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>Notificações</span>
-            {notifs.length > 0 && <button onClick={onClear} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: 12 }}>Limpar</button>}
+            <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>
+              Notificações
+              {notifs.length > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 11, color: T.textMuted, fontWeight: 400 }}>
+                  ({notifs.length})
+                </span>
+              )}
+            </span>
+            {notifs.length > 0 && (
+              <button
+                onClick={onClear}
+                style={{ background: T.redDim, border: `1px solid ${T.red}33`, borderRadius: 6, cursor: "pointer", color: T.red, fontSize: 11, fontWeight: 700, padding: "3px 10px", fontFamily: "inherit" }}
+              >
+                🗑️ Apagar tudo
+              </button>
+            )}
           </div>
-          <div style={{ maxHeight: 320, overflowY: "auto" }}>
-            {notifs.length === 0
-              ? <p style={{ padding: "20px 16px", color: T.textMuted, fontSize: 13, textAlign: "center" }}>Sem notificações</p>
-              : notifs.map(n => (
-                <div key={n.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${T.border}`, background: n.read ? "transparent" : T.accentDim }}>
-                  <p style={{ margin: 0, fontSize: 13, color: T.text }}>{n.text}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: T.textMuted }}>{n.time}</p>
+
+          {/* Lista */}
+          <div style={{ maxHeight: 360, overflowY: "auto" }}>
+            {notifs.length === 0 ? (
+              <div style={{ padding: "28px 16px", textAlign: "center" }}>
+                <p style={{ fontSize: 24, margin: "0 0 6px" }}>🔕</p>
+                <p style={{ color: T.textMuted, fontSize: 13, margin: 0 }}>Sem notificações</p>
+              </div>
+            ) : (
+              notifs.map(n => (
+                <div
+                  key={n.id}
+                  style={{
+                    padding: "10px 16px",
+                    borderBottom: `1px solid ${T.border}`,
+                    background: n.read ? "transparent" : T.accentDim,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    transition: "background .2s",
+                  }}
+                >
+                  {/* Dot lido/não lido */}
+                  <div style={{
+                    width: 7, height: 7, borderRadius: "50%", marginTop: 4, flexShrink: 0,
+                    background: n.read ? T.border : T.accent,
+                    transition: "background .2s",
+                  }} />
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: "0 0 2px", fontSize: 13, color: T.text, lineHeight: 1.4 }}>{n.text}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: T.textMuted }}>{n.time}</p>
+                  </div>
+
+                  {/* Botão deletar individual */}
+                  <button
+                    onClick={() => onDeleteOne(n.id)}
+                    title="Apagar notificação"
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: T.textMuted, fontSize: 16, padding: "0 2px",
+                      lineHeight: 1, flexShrink: 0, borderRadius: 4,
+                      transition: "color .15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = T.red}
+                    onMouseLeave={e => e.currentTarget.style.color = T.textMuted}
+                  >
+                    ×
+                  </button>
                 </div>
               ))
-            }
+            )}
           </div>
         </div>
       )}
@@ -4005,7 +4124,6 @@ export default function App() {
   const [taskTypes, setTaskTypes]   = useState(DEFAULT_TASK_TYPES);
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab]               = useState("board");
-  const [notifs, setNotifs]         = useState({});
   const [dbReady, setDbReady]       = useState(false);
   const [myCardsMode, setMyCardsModeState] = useState(() => localStorage.getItem(MY_CARDS_KEY) === "1");
   const [campanhas, setCampanhas]   = useState([]);
@@ -4013,10 +4131,18 @@ export default function App() {
 
   const presence = usePresence();
 
-  const onNotify = useCallback((memberId, text) => {
-    const notif = { id: uid(), text, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), read: false };
-    setNotifs(n => ({ ...n, [memberId]: [notif, ...(n[memberId] || [])] }));
-  }, []);
+  const {
+  notifs: myNotifs,
+  addNotif,
+  markAllRead,
+  deleteOne: deleteOneNotif,
+  deleteAll: deleteAllNotifs,
+} = useNotifications(currentUser?.id);
+
+const onNotify = useCallback((targetUserId, text) => {
+  addNotif(targetUserId, text);
+}, [addNotif]);
+
 
   const setMyCardsMode = (val) => {
     setMyCardsModeState(val);
@@ -4195,8 +4321,6 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  const myNotifs    = notifs[currentUser?.id] || [];
-  const clearNotifs = () => setNotifs(n => ({ ...n, [currentUser.id]: (n[currentUser.id] || []).map(x => ({ ...x, read: true })) }));
 
   const TABS = [
     { id: "board",     label: "Board",    icon: "📋" },
@@ -4243,7 +4367,12 @@ export default function App() {
                 <span className="header-mycards-label nav-label">Meus cards</span>
               </button>
 
-              <NotifBell notifs={myNotifs} onClear={clearNotifs} />
+              <NotifBell
+  notifs={myNotifs}
+  onClear={deleteAllNotifs}
+  onDeleteOne={deleteOneNotif}
+  onMarkRead={markAllRead}
+/>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ position: "relative" }}>
