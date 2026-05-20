@@ -2696,20 +2696,27 @@ function SocialTab({ data, updateData }) {
     };
 
     const parseDate = (val) => {
-      if (!val) return new Date().toISOString().slice(0, 10);
-      const s = val.trim();
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-      const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-      if (dmy) {
-        const yr = dmy[3].length === 2 ? "20" + dmy[3] : dmy[3];
-        return `${yr}-${dmy[2].padStart(2,"0")}-${dmy[1].padStart(2,"0")}`;
-      }
-      const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,"0")}-${mdy[2].padStart(2,"0")}`;
-      const d = new Date(s);
-      if (!isNaN(d)) return d.toISOString().slice(0, 10);
-      return new Date().toISOString().slice(0, 10);
-    };
+  if (!val) return new Date().toISOString().slice(0, 10);
+  const s = val.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  
+  // MM/DD/YYYY HH:MM  ← formato do CSV do Instagram (Meta)
+  const mdyTime = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdyTime) {
+    return `${mdyTime[3]}-${mdyTime[1].padStart(2,"0")}-${mdyTime[2].padStart(2,"0")}`;
+  }
+  
+  // DD/MM/YYYY
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (dmy) {
+    const yr = dmy[3].length === 2 ? "20" + dmy[3] : dmy[3];
+    return `${yr}-${dmy[2].padStart(2,"0")}-${dmy[1].padStart(2,"0")}`;
+  }
+  
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+};
 
     const hasTotalRows = iPubDate >= 0 && dataRows.some(r => get(r, iPubDate).toLowerCase() === "total");
     const filteredRows = hasTotalRows
@@ -2735,7 +2742,15 @@ function SocialTab({ data, updateData }) {
       const comments = parseNum(get(row, iComments));
       const shares   = parseNum(get(row, iShares));
       const saves    = parseNum(get(row, iSaves));
-      const date     = parseDate(get(row, iPubDate));
+      const iHorario = headers.findIndex(h =>
+  h.includes("horario") || h.includes("publicac") || h.includes("published") || h.includes("created")
+);
+const rawDateVal = get(row, iPubDate);
+const date = parseDate(
+  (rawDateVal === "Total" || !rawDateVal)
+    ? get(row, iHorario)
+    : rawDateVal
+);
 
       const rawType = get(row, iType);
       const type = /reel/i.test(rawType) ? "Reels"
