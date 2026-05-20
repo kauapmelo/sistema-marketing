@@ -1012,7 +1012,7 @@ function KanbanCard({ card, colId, members, onOpen, onDelete, onComplete, onMove
 
   return (
     <div
-      draggable={!isCompleted}
+      draggable={true}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -1383,7 +1383,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
                 colId={colId}
                 members={members}
                 onOpen={onOpen}
-                onDelete={(cid, colId) => { onRemoveCard(colId, cid); onDeleteCard(cid, colId); }}
+                onDelete={(cid, colId) => { onDeleteCard(cid, colId); }}
                 onComplete={onComplete}
                 onMoveUp={onMoveUp}
                 onMoveDown={onMoveDown}
@@ -1394,8 +1394,8 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
               />
               {/* Botão remover da pasta */}
               <button
-                title="Remover da pasta"
-                onClick={() => onRemoveCard(colId, card.id)}
+  title="Remover da pasta"
+  onClick={(e) => { e.stopPropagation(); onRemoveCard(colId, card.id); }}
                 style={{
                   position: "absolute", top: 8, right: 8,
                   background: T.bg4, border: `1px solid ${T.border}`,
@@ -1720,7 +1720,11 @@ useEffect(() => {
     const { card, fromCol } = JSON.parse(cardData);
     
     // Se for a mesma coluna, não faz nada (reordenação já tratada no KanbanCard)
-    if (fromCol === toColId) return;
+    if (fromCol === toColId) {
+  // Remove da pasta se estiver em uma (drop na área livre da mesma coluna)
+  removeCardFromFolder(toColId, card.id);
+  return;
+}
     
     // Move entre colunas
     updateColumns(columnsRef.current.map(col => {
@@ -1730,7 +1734,7 @@ useEffect(() => {
         return { ...col, cards: cardsAtuais.filter(c => c.id !== card.id) };
       }
       if (col.id === toColId) {
-        return { ...col, cards: [...cardsAtuais, { ...card, completed: false }] };
+        return { ...col, cards: [...cardsAtuais, { ...card}] };
       }
       return { ...col, cards: cardsAtuais };
     }));
