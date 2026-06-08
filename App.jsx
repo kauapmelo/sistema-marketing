@@ -1366,6 +1366,7 @@ function FolderBlock({ folder, colId, cards, members, onToggle, onDelete, onRena
   const folderCards = cards.filter(c =>
     (folder.cardIds || []).includes(c.id) && (!filterCard || filterCard(c))
   );
+  if (filterCard && folderCards.length === 0) return null;
   const completedCount = folderCards.filter(c => c.completed).length;
   const isDragOver = dragOverFolder?.colId === colId && dragOverFolder?.folderId === folder.id;
 
